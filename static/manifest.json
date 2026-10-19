@@ -1,6 +1,6 @@
 {
-  "name": "Smart Hub - Asistencia Ryan Pacific",
-  "short_name": "Smart Hub",
+  "name": "Ryan Pacific - Control de Asistencia",
+  "short_name": "Ryan Pacific",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

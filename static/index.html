@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Hub - Asistencia Ryan Pacific</title>
+    <title>Ryan Pacific - Control de Asistencia</title>
     
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#16a34a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
 
     <!-- Librería local para escanear QR sin internet bajo losas -->
     <script src="/static/jsQR.min.js"></script>
@@ -361,8 +362,9 @@
             
             <div class="user-bar">
                 <div class="user-info">
-                    <span>👷‍♂️</span>
+                    <span id="userIcon">👷‍♂️</span>
                     <span id="lblTrabajador">Cargando...</span>
+                    <span id="badgeRol" style="display:none; font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; margin-left:4px;"></span>
                 </div>
                 <button id="btnCambiarTrabajador" class="btn-change-user">Cambiar / Enrolar</button>
             </div>
@@ -413,6 +415,20 @@
                 <h2 id="confTitulo">✅ ENTRADA REGISTRADA</h2>
                 <div id="confHora" style="font-size: 24px; font-weight:800; margin-bottom: 6px;">07:00:00 AM</div>
                 <div id="confDetalle" style="font-size: 13px; color: #a7f3d0;">Guardado localmente. Se sincroniza en automático.</div>
+            </div>
+
+            <!-- BARRA DE SUPERVISIÓN PARA FOREMAN Y ADMIN -->
+            <div id="foremanBar" class="hidden" style="margin-top:14px; background:#1e293b; border:1px solid #3b82f6; border-radius:12px; padding:12px; text-align:center;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span id="foremanBadge" style="background:#2563eb; color:white; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px;">🏗️ SUPERVISIÓN DE OBRA</span>
+                    <span id="foremanRoleText" style="font-size:12px; color:#94a3b8; font-weight:600;">Foreman</span>
+                </div>
+                <button type="button" id="btnVerPersonal" onclick="abrirModalResumenDia()" style="width:100%; background:#2563eb; color:white; border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 8px rgba(0,0,0,0.2);">
+                    👥 Ver Personal en Obra
+                </button>
+                <a id="btnIrAdmin" href="/admin" class="hidden" style="display:none; margin-top:8px; background:#334155; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:600; font-size:13px; text-align:center;">
+                    ⚙️ Abrir Panel Administrativo
+                </a>
             </div>
 
         </div>
@@ -829,6 +845,7 @@
             const nombre = localStorage.getItem("rpcs_nombre");
             if (nombre) {
                 ui.lblTrabajador.innerText = nombre;
+                verificarRolUsuario(nombre);
             } else {
                 abrirModalPerfil();
             }
@@ -849,6 +866,7 @@
             localStorage.setItem("rpcs_telefono", tel);
             ui.lblTrabajador.innerText = nom;
             ui.modalOnboarding.classList.add('hidden');
+            verificarRolUsuario(nom);
 
             // Preguntar si desea enrolar su biometría en el servidor
             if (confirm(`¿Deseas registrar tu biometría facial para ${nom} ahora mismo?`)) {
@@ -974,6 +992,116 @@
             } catch(e) {}
         }
 
+        // ================= SUPERVISIÓN FOREMAN / ADMIN =================
+        async function verificarRolUsuario(nombre) {
+            if (!nombre) return;
+            try {
+                const resp = await fetch(`/api/empleado_info?nombre=${encodeURIComponent(nombre)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const rol = (data.rol || 'worker').toLowerCase();
+                    const foremanBar = document.getElementById('foremanBar');
+                    const btnIrAdmin = document.getElementById('btnIrAdmin');
+                    const badgeRol = document.getElementById('badgeRol');
+                    const foremanRoleText = document.getElementById('foremanRoleText');
+
+                    if (rol === 'foreman' || rol === 'admin') {
+                        foremanBar.classList.remove('hidden');
+                        foremanBar.style.display = 'block';
+                        if (rol === 'admin') {
+                            btnIrAdmin.classList.remove('hidden');
+                            btnIrAdmin.style.display = 'block';
+                            foremanRoleText.textContent = 'Admin / Gerencia';
+                            if (badgeRol) {
+                                badgeRol.textContent = '👑 Admin';
+                                badgeRol.style.background = '#8b5cf6';
+                                badgeRol.style.color = 'white';
+                                badgeRol.style.display = 'inline-block';
+                            }
+                        } else {
+                            btnIrAdmin.classList.add('hidden');
+                            btnIrAdmin.style.display = 'none';
+                            foremanRoleText.textContent = 'Foreman / Capataz';
+                            if (badgeRol) {
+                                badgeRol.textContent = '🏗️ Foreman';
+                                badgeRol.style.background = '#2563eb';
+                                badgeRol.style.color = 'white';
+                                badgeRol.style.display = 'inline-block';
+                            }
+                        }
+                    } else {
+                        foremanBar.classList.add('hidden');
+                        foremanBar.style.display = 'none';
+                        if (badgeRol) badgeRol.style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                console.warn('No se pudo verificar rol en línea:', e);
+            }
+        }
+
+        async function abrirModalResumenDia() {
+            const modal = document.getElementById('modalResumenDia');
+            const lista = document.getElementById('resumenListaObras');
+            const countSpan = document.getElementById('resumenTotalCount');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            lista.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">⏳ Cargando personal en obra...</div>';
+
+            try {
+                const resp = await fetch('/api/resumen_dia');
+                const data = await resp.json();
+                countSpan.textContent = data.gran_total_activos || 0;
+
+                if (!data.obras || data.obras.length === 0) {
+                    lista.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">No hay trabajadores registrados hoy aún.</div>';
+                    return;
+                }
+
+                let html = '';
+                data.obras.forEach(obra => {
+                    html += `
+                    <div style="border:1px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
+                            <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1e293b;">
+                                <span style="font-size:16px;">📍</span>
+                                <span>${obra.nombre}</span>
+                            </div>
+                            <span style="background:#16a34a; color:white; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; letter-spacing:0.3px;">
+                                ${obra.activos} Activos / ${obra.total} Total
+                            </span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            ${obra.trabajadores.length === 0 ? '<div style="font-size:12px; color:#94a3b8; font-style:italic;">Sin marcajes hoy</div>' : ''}
+                            ${obra.trabajadores.map(t => `
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                                    <div style="display:flex; align-items:center; gap:10px; color:#1e293b; font-weight:600;">
+                                        <span style="color:#6366f1; font-size:15px;">👤</span>
+                                        <span>${t.nombre}</span>
+                                    </div>
+                                    <span style="${t.estado === 'ACTIVO' 
+                                        ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
+                                        : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
+                                        font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px;">
+                                        ${t.estado}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                });
+                lista.innerHTML = html;
+            } catch (e) {
+                lista.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444;">Error al cargar el resumen: ${e.message}</div>`;
+            }
+        }
+
+        function cerrarModalResumenDia() {
+            const modal = document.getElementById('modalResumenDia');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
+
         // ================= INICIALIZACIÓN GENERAL =================
         async function arrancar() {
             cargarPerfilActual();
@@ -993,5 +1121,33 @@
 
         window.onload = arrancar;
     </script>
+
+    <!-- MODAL RESUMEN DEL DÍA PARA FOREMAN / ADMIN -->
+    <div id="modalResumenDia" class="modal hidden" style="align-items:flex-end; padding:0; z-index:2000; background:rgba(15,23,42,0.85);">
+        <div style="background:#ffffff; color:#1e293b; border-radius:20px 20px 0 0; width:100%; max-width:480px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 -10px 25px rgba(0,0,0,0.5); overflow:hidden; margin:0 auto;">
+            
+            <!-- Header Modal -->
+            <div style="padding:16px 20px 12px 20px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:10px; background:#ffffff;">
+                <span style="font-size:20px; color:#4c1d95;">👥</span>
+                <h3 id="resumenTituloHeader" style="margin:0; font-size:18px; font-weight:800; color:#3b0764; font-family:system-ui, -apple-system, sans-serif;">
+                    Resumen del Día (<span id="resumenTotalCount">0</span>)
+                </h3>
+            </div>
+
+            <!-- Contenido con scroll -->
+            <div id="resumenListaObras" style="padding:16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px; background:#f8fafc;">
+                <div style="text-align:center; padding:30px; color:#64748b;">
+                    Cargando personal en obra...
+                </div>
+            </div>
+
+            <!-- Footer Botón Cerrar -->
+            <div style="padding:12px 16px 20px 16px; background:#ffffff; border-top:1px solid #f1f5f9;">
+                <button type="button" onclick="cerrarModalResumenDia()" style="width:100%; height:46px; background:#334155; color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; font-family:system-ui, sans-serif;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

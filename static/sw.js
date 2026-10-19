@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ryan-pacific-asistencia-v2';
+const CACHE_NAME = 'ryan-pacific-asistencia-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   '/static/icon.png',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
+  '/static/icons/apple-touch-icon.png',
   '/static/jsQR.min.js'
 ];
 
@@ -38,8 +39,10 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia Network-First con fallback a Caché
 self.addEventListener('fetch', (event) => {
-  // Las llamadas a API de sincronización deben manejarse en la app, no en caché GET
-  if (event.request.url.includes('/api/')) {
+  const url = event.request.url;
+
+  // IMPORTANTE: Las llamadas al panel admin y a las APIs no deben ser interceptadas por el SW
+  if (url.includes('/admin') || url.includes('/api/')) {
     return;
   }
 
@@ -62,6 +65,9 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
+            if (url.includes('/admin')) {
+              return;
+            }
             return caches.match('/');
           }
         });

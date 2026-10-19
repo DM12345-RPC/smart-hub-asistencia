@@ -1,19 +1,46 @@
 import cv2
 import numpy as np
-from insightface.app import FaceAnalysis
 import base64
 import os
+import onnxruntime
 
-# Inicializar motor biométrico ultra-ligero InsightFace (buffalo_s) optimizado para <512MB RAM
-print("Inicializando InsightFace buffalo_s (ultra-ligero, <150MB RAM)...")
-face_app = FaceAnalysis(
-    name='buffalo_s',
-    root=os.path.expanduser('~/.insightface'),
-    allowed_modules=['detection', 'recognition']
-)
-# ctx_id=-1 para CPU, det_size=(320, 320) reduce el buffer de memoria en 75%
-face_app.prepare(ctx_id=-1, det_size=(320, 320))
-print("Motor biométrico listo.")
+# Límites estrictos de memoria RAM para servidores en la nube (Render 512MB)
+os.environ["ORT_DISABLE_MEMORY_ARENA"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
+from insightface.app import FaceAnalysis
+
+_face_app = None
+
+def get_face_app():
+    """
+    Inicializador seguro bajo demanda (lazy-loading).
+    Garantiza que solo se carguen los pesos ligeros de detección y reconocimiento,
+    manteniendo el consumo de RAM en menos de 120MB.
+    """
+    global _face_app
+    if _face_app is None:
+        print("[INFO] Inicializando motor biometrico ultra-ligero (<120MB RAM)...")
+        models_dir = os.path.expanduser('~/.insightface/models/buffalo_s')
+        if os.path.exists(models_dir):
+            for unused in ['1k3d68.onnx', '2d106det.onnx', 'genderage.onnx']:
+                fpath = os.path.join(models_dir, unused)
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+                        
+        _face_app = FaceAnalysis(
+            name='buffalo_s',
+            root=os.path.expanduser('~/.insightface'),
+            allowed_modules=['detection', 'recognition']
+        )
+        _face_app.prepare(ctx_id=-1, det_size=(320, 320))
+        print("[INFO] Motor biometrico listo y optimizado en memoria.")
+    return _face_app
 
 def decodificar_imagen(datos_bytes_o_base64):
     """
@@ -60,6 +87,9 @@ def extraer_vector_rostro(img):
     """
     if img is None:
         return None, "Imagen vacía o corrupta", None
+
+    # Obtener el motor biométrico optimizado
+    face_app = get_face_app()
 
     # Preprocesar imagen
     img_opt = mejorar_contraste_obra(img)

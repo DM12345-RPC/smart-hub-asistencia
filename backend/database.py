@@ -36,6 +36,8 @@ def init_db():
         cursor.execute("ALTER TABLE empleados ADD COLUMN telefono TEXT")
     if "foto_perfil" not in cols_emp:
         cursor.execute("ALTER TABLE empleados ADD COLUMN foto_perfil TEXT")
+    if "rol" not in cols_emp:
+        cursor.execute("ALTER TABLE empleados ADD COLUMN rol TEXT DEFAULT 'worker'")
 
     # Tabla de Proyectos / Obras
     cursor.execute("""
@@ -133,7 +135,7 @@ def listar_empleados():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT id, nombre, telefono, puesto, foto_perfil, fecha_registro, activo 
+    SELECT id, nombre, telefono, puesto, COALESCE(rol, 'worker') as rol, foto_perfil, fecha_registro, activo 
     FROM empleados 
     WHERE activo = 1 
     ORDER BY nombre ASC
@@ -141,6 +143,26 @@ def listar_empleados():
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+def actualizar_rol_empleado(empleado_id, nuevo_rol):
+    if nuevo_rol not in ('worker', 'foreman', 'admin'):
+        nuevo_rol = 'worker'
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE empleados SET rol = ? WHERE id = ?", (nuevo_rol, empleado_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def obtener_rol_empleado(nombre):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT rol FROM empleados WHERE nombre = ? AND activo = 1", (nombre,))
+    row = cursor.fetchone()
+    conn.close()
+    if row and row["rol"]:
+        return row["rol"]
+    return "worker"
 
 def eliminar_empleado(empleado_id):
     conn = get_connection()
@@ -299,4 +321,84 @@ def obtener_metricas_dashboard():
         "alertas_fraude_hoy": fraudes,
         "marcajes_bajo_losa_qr": marcajes_qr,
         "trabajadores_activos_hoy": trabajadores_activos
+    }
+
+def obtener_resumen_dia_foreman():
+    """
+    Genera el resumen en tiempo real del personal en cada obra para el Foreman y Admin.
+    Calcula activos (último marcaje hoy = ENTRADA) vs salidos (último marcaje hoy = SALIDA).
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+
+    # Obtener el último marcaje de cada trabajador hoy
+    query = """
+    WITH ultimos AS (
+        SELECT 
+            m.empleado_nombre,
+            m.tipo,
+            m.proyecto_nombre,
+            m.timestamp_local,
+            ROW_NUMBER() OVER (
+                PARTITION BY m.empleado_nombre 
+                ORDER BY m.id DESC
+            ) as rn
+        FROM marcajes m
+        WHERE m.timestamp_local LIKE ? OR m.timestamp_servidor LIKE ?
+    )
+    SELECT 
+        empleado_nombre,
+        tipo,
+        proyecto_nombre,
+        timestamp_local
+    FROM ultimos
+    WHERE rn = 1
+    ORDER BY proyecto_nombre ASC, empleado_nombre ASC
+    """
+    cursor.execute(query, (f"{hoy}%", f"{hoy}%"))
+    filas = cursor.fetchall()
+
+    # Proyectos registrados
+    cursor.execute("SELECT nombre FROM proyectos WHERE activo = 1 ORDER BY nombre ASC")
+    proyectos = [p["nombre"] for p in cursor.fetchall()]
+    conn.close()
+
+    obras_dict = {}
+    for p in proyectos:
+        obras_dict[p] = {"nombre": p, "activos": 0, "total": 0, "trabajadores": []}
+
+    gran_total_activos = 0
+    gran_total_general = 0
+
+    for f in filas:
+        p_nom = f["proyecto_nombre"] or "Sin Obra Asignada"
+        if p_nom not in obras_dict:
+            obras_dict[p_nom] = {"nombre": p_nom, "activos": 0, "total": 0, "trabajadores": []}
+
+        es_activo = (f["tipo"].upper() == "ENTRADA")
+        estado_label = "ACTIVO" if es_activo else "SALIÓ"
+        if es_activo:
+            obras_dict[p_nom]["activos"] += 1
+            gran_total_activos += 1
+
+        obras_dict[p_nom]["total"] += 1
+        gran_total_general += 1
+
+        obras_dict[p_nom]["trabajadores"].append({
+            "nombre": f["empleado_nombre"],
+            "estado": estado_label
+        })
+
+    # Filtrar solo obras con trabajadores hoy (o todas si no hay ninguno)
+    obras_lista = [v for v in obras_dict.values() if v["total"] > 0]
+    if not obras_lista:
+        obras_lista = [v for v in obras_dict.values()]
+
+    return {
+        "status": "ok",
+        "fecha": hoy,
+        "gran_total_activos": gran_total_activos,
+        "gran_total_general": gran_total_general,
+        "obras": obras_lista
     }

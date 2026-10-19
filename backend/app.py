@@ -28,7 +28,10 @@ from .database import (
     registrar_marcaje,
     listar_marcajes,
     eliminar_marcaje,
-    obtener_metricas_dashboard
+    obtener_metricas_dashboard,
+    actualizar_rol_empleado,
+    obtener_rol_empleado,
+    obtener_resumen_dia_foreman
 )
 from .geofence import validar_posicion_en_obra
 from .biometrics import decodificar_imagen, extraer_vector_rostro, verificar_1_a_1, detectar_borrosidad
@@ -67,9 +70,44 @@ def raiz_pwa():
 
 
 @app.get("/admin")
+@app.get("/admin/")
 def panel_administracion():
     """Servir el panel de control administrativo y auditoría de nómina."""
     return FileResponse(os.path.join(STATIC_DIR, "admin.html"))
+
+@app.get("/admin/{path:path}")
+def panel_administracion_subpath(path: str):
+    """Garantizar que cualquier subruta de /admin en móviles cargue el panel."""
+    return FileResponse(os.path.join(STATIC_DIR, "admin.html"))
+
+# ---------------- API ROLES Y RESUMEN FOREMAN / ADMIN ----------------
+
+@app.get("/api/empleado_info")
+def api_empleado_info(nombre: str = Query(...)):
+    """Retorna información del empleado, incluyendo su rol (worker, foreman, admin)."""
+    emp = obtener_empleado(nombre)
+    rol = emp.get("rol", "worker") if emp else "worker"
+    if not rol:
+        rol = "worker"
+    return {
+        "status": "ok",
+        "exists": emp is not None,
+        "nombre": nombre,
+        "rol": rol,
+        "telefono": emp.get("telefono", "") if emp else ""
+    }
+
+@app.post("/api/empleados/{empleado_id}/rol")
+def api_actualizar_rol(empleado_id: int, payload: dict):
+    """Actualiza el rol del empleado (worker, foreman, admin)."""
+    nuevo_rol = payload.get("rol", "worker")
+    actualizar_rol_empleado(empleado_id, nuevo_rol)
+    return {"status": "ok", "empleado_id": empleado_id, "nuevo_rol": nuevo_rol}
+
+@app.get("/api/resumen_dia")
+def api_resumen_dia():
+    """Retorna el resumen del día agrupado por obra para el Foreman y Admin."""
+    return obtener_resumen_dia_foreman()
 
 
 # ---------------- API LISTA OFICIAL DE PERSONAL ----------------

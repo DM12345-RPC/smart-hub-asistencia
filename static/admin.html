@@ -30,6 +30,17 @@
 
         .container { max-width: 1250px; margin: 0 auto; }
 
+        @media (max-width: 768px) {
+            body { padding: 12px !important; }
+            .header { flex-direction: column; align-items: stretch !important; gap: 12px; }
+            .header-left { width: 100%; justify-content: space-between; }
+            .nav-tabs { overflow-x: auto; white-space: nowrap; width: 100%; padding-bottom: 6px; }
+            .metric-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+            .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .workers-grid { grid-template-columns: 1fr !important; }
+            .modal-card { width: 95% !important; padding: 16px !important; }
+        }
+
         /* Header */
         .header {
             display: flex;
@@ -324,6 +335,7 @@
                 </div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button onclick="abrirResumenModalAdmin()" class="btn" style="background:#2563eb;">👥 Resumen del Día</button>
                 <a href="/" target="_blank" class="btn btn-outline">📱 Abrir App Obrero (PWA)</a>
                 <button onclick="recargarDatos()" class="btn">🔄 Actualizar</button>
             </div>
@@ -706,6 +718,7 @@
                 const avatar = emp.foto_perfil || '/static/icon.png';
                 const fecha = new Date(emp.fecha_registro).toLocaleDateString();
                 const tel = emp.telefono ? `📞 ${emp.telefono}` : '<span style="color:#64748b;">Sin teléfono</span>';
+                const rolActual = emp.rol || 'worker';
 
                 return `
                     <div class="worker-card">
@@ -715,6 +728,14 @@
                                 ${emp.nombre}
                             </div>
                             <div style="font-size:13px; color:#38bdf8; margin:2px 0;">${tel}</div>
+                            <div style="display:flex; align-items:center; gap:6px; margin:4px 0;">
+                                <label style="font-size:11px; color:#94a3b8; font-weight:600;">Rol:</label>
+                                <select onchange="cambiarRolTrabajador(${emp.id}, this.value)" style="background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; cursor:pointer;">
+                                    <option value="worker" ${rolActual === 'worker' ? 'selected' : ''}>👷 Worker</option>
+                                    <option value="foreman" ${rolActual === 'foreman' ? 'selected' : ''}>🏗️ Foreman</option>
+                                    <option value="admin" ${rolActual === 'admin' ? 'selected' : ''}>👑 Admin</option>
+                                </select>
+                            </div>
                             <div style="font-size:11px; color:#94a3b8;">Registrado: ${fecha}</div>
                         </div>
                         <div>
@@ -727,9 +748,28 @@
             }).join('');
         }
 
+        async function cambiarRolTrabajador(id, nuevoRol) {
+            try {
+                const res = await fetch(`/api/empleados/${id}/rol`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rol: nuevoRol })
+                });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    const emp = datosEmpleados.find(e => e.id === id);
+                    if (emp) emp.rol = nuevoRol;
+                } else {
+                    alert("Error cambiando rol: " + (data.error || ""));
+                }
+            } catch(e) {
+                alert("Error de red al actualizar rol");
+            }
+        }
+
         function filtrarPersonalAdmin() {
             const q = document.getElementById('buscadorPersonal').value.toLowerCase().trim();
-            const filtrados = datosEmpleados.filter(e => e.nombre.toLowerCase().includes(q) || (e.telefono && e.telefono.includes(q)));
+            const filtrados = datosEmpleados.filter(e => e.nombre.toLowerCase().includes(q) || (e.telefono && e.telefono.includes(q)) || (e.rol && e.rol.toLowerCase().includes(q)));
             renderizarEmpleados(filtrados);
         }
 
@@ -869,8 +909,101 @@
             document.body.removeChild(link);
         }
 
+        async function abrirResumenModalAdmin() {
+            const modal = document.getElementById('modalResumenDiaAdmin');
+            const lista = document.getElementById('resumenListaObrasAdmin');
+            const countSpan = document.getElementById('resumenTotalCountAdmin');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            lista.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">⏳ Cargando personal en obra...</div>';
+
+            try {
+                const resp = await fetch('/api/resumen_dia');
+                const data = await resp.json();
+                countSpan.textContent = data.gran_total_activos || 0;
+
+                if (!data.obras || data.obras.length === 0) {
+                    lista.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">No hay trabajadores registrados hoy aún.</div>';
+                    return;
+                }
+
+                let html = '';
+                data.obras.forEach(obra => {
+                    html += `
+                    <div style="border:1px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
+                            <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1e293b;">
+                                <span style="font-size:16px;">📍</span>
+                                <span>${obra.nombre}</span>
+                            </div>
+                            <span style="background:#16a34a; color:white; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; letter-spacing:0.3px;">
+                                ${obra.activos} Activos / ${obra.total} Total
+                            </span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            ${obra.trabajadores.length === 0 ? '<div style="font-size:12px; color:#94a3b8; font-style:italic;">Sin marcajes hoy</div>' : ''}
+                            ${obra.trabajadores.map(t => `
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                                    <div style="display:flex; align-items:center; gap:10px; color:#1e293b; font-weight:600;">
+                                        <span style="color:#6366f1; font-size:15px;">👤</span>
+                                        <span>${t.nombre}</span>
+                                    </div>
+                                    <span style="${t.estado === 'ACTIVO' 
+                                        ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
+                                        : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
+                                        font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px;">
+                                        ${t.estado}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                });
+                lista.innerHTML = html;
+            } catch (e) {
+                lista.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444;">Error al cargar el resumen: ${e.message}</div>`;
+            }
+        }
+
+        function cerrarResumenModalAdmin() {
+            const modal = document.getElementById('modalResumenDiaAdmin');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
+
         setInterval(recargarDatos, 20000);
         window.onload = recargarDatos;
     </script>
+
+    <!-- MODAL RESUMEN DEL DÍA PARA ADMIN -->
+    <div id="modalResumenDiaAdmin" class="modal hidden" style="align-items:center; justify-content:center; padding:16px; z-index:2000; background:rgba(15,23,42,0.85);">
+        <div style="background:#ffffff; color:#1e293b; border-radius:18px; width:100%; max-width:480px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.5); overflow:hidden;">
+            
+            <!-- Header Modal -->
+            <div style="padding:16px 20px 12px 20px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#ffffff;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px; color:#4c1d95;">👥</span>
+                    <h3 style="margin:0; font-size:18px; font-weight:800; color:#3b0764; font-family:system-ui, -apple-system, sans-serif;">
+                        Resumen del Día (<span id="resumenTotalCountAdmin">0</span>)
+                    </h3>
+                </div>
+                <button type="button" onclick="cerrarResumenModalAdmin()" style="background:#f1f5f9; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:bold; color:#64748b;">✕</button>
+            </div>
+
+            <!-- Contenido con scroll -->
+            <div id="resumenListaObrasAdmin" style="padding:16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px; background:#f8fafc;">
+                <div style="text-align:center; padding:30px; color:#64748b;">
+                    Cargando personal en obra...
+                </div>
+            </div>
+
+            <!-- Footer Botón Cerrar -->
+            <div style="padding:12px 16px 16px 16px; background:#ffffff; border-top:1px solid #f1f5f9;">
+                <button type="button" onclick="cerrarResumenModalAdmin()" style="width:100%; height:44px; background:#334155; color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; font-family:system-ui, sans-serif;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
