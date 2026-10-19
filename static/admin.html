@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrativo - Smart Hub Ryan Pacific</title>
+    
+    <link rel="icon" type="image/png" href="/static/icon.png">
+    <style>
+        :root {
+            --primary: #16a34a;
+            --primary-dark: #15803d;
+            --bg: #0b1120;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+        }
+
+        .container { max-width: 1250px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header img.logo { height: 48px; }
+        .header h1 { margin: 0; font-size: 22px; }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+        }
+        .btn:hover { opacity: 0.95; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #334155; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-maps { background: #2563eb; }
+        .btn-maps:hover { background: #1d4ed8; }
+
+        /* Pestañas de Navegación */
+        .tabs-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 2px;
+        }
+        .tab-btn {
+            background: transparent;
+            color: var(--text-sub);
+            border: none;
+            font-size: 15px;
+            font-weight: 700;
+            padding: 12px 18px;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+            position: relative;
+            bottom: -2px;
+        }
+        .tab-btn.active {
+            color: #38bdf8;
+            border-bottom: 3px solid #38bdf8;
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        /* Tarjetas de Métricas */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+        .metric-title { font-size: 13px; color: var(--text-sub); text-transform: uppercase; font-weight: 700; }
+        .metric-value { font-size: 32px; font-weight: 800; margin-top: 8px; }
+        .val-success { color: var(--success); }
+        .val-danger { color: var(--danger); }
+        .val-warning { color: var(--warning); }
+
+        /* Filtros y Controles */
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        select, input[type="date"], input[type="text"], input[type="number"], input[type="tel"] {
+            background: var(--card-bg);
+            color: white;
+            border: 1px solid var(--border);
+            padding: 9px 12px;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        /* Tabla de Asistencia */
+        .table-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+            min-width: 950px;
+        }
+        th {
+            background: #0f172a;
+            padding: 14px 16px;
+            font-weight: 700;
+            color: var(--text-sub);
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+            vertical-align: middle;
+        }
+        tr:hover { background: rgba(51, 65, 85, 0.3); }
+
+        /* Badges de Auditoría */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+        }
+        .badge-APROBADO { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+        .badge-REVISION_GPS { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+        .badge-REVISION_FACIAL { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+        .badge-SOSPECHA_FRAUDE { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+
+        .tipo-badge {
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .tipo-ENTRADA { background: #14532d; color: #86efac; }
+        .tipo-SALIDA { background: #7c2d12; color: #fdba74; }
+
+        .thumb {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .thumb:hover { transform: scale(1.15); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+        /* Grid de Personal */
+        .workers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .worker-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .worker-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: #0f172a;
+            border: 2px solid var(--border);
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        /* Secciones Inferiores */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 850px) { .grid-2 { grid-template-columns: 1fr; } }
+        .p-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+        }
+        .project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .project-item:last-child { border-bottom: none; }
+
+        /* Modal de Inspección de Foto */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 17, 32, 0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+        .modal-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            max-width: 760px;
+            width: 100%;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            animation: fadeIn 0.25s;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+        .modal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media(max-width: 650px) { .modal-grid { grid-template-columns: 1fr; } }
+        .modal-photo {
+            width: 100%;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            background: #000;
+        }
+        .modal-info-item { margin-bottom: 12px; }
+        .modal-info-label { color: var(--text-sub); font-size: 11px; text-transform: uppercase; font-weight: 700; }
+        .modal-info-val { font-size: 15px; font-weight: 600; margin-top: 2px; }
+        .close-btn {
+            background: #334155;
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <img src="/static/logo.png" alt="Ryan Pacific Logo" class="logo">
+                <div>
+                    <h1>Control de Asistencia & Nómina</h1>
+                    <span style="font-size: 13px; color: var(--text-sub);">Base de Datos Interna Ryan Pacific</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a href="/" target="_blank" class="btn btn-outline">📱 Abrir App Obrero (PWA)</a>
+                <button onclick="recargarDatos()" class="btn">🔄 Actualizar</button>
+            </div>
+        </div>
+
+        <!-- PESTAÑAS PRINCIPALES -->
+        <div class="tabs-nav">
+            <button id="btnTabMarcajes" class="tab-btn active" onclick="cambiarPestana('tab-marcajes')">📋 Marcajes de Asistencia</button>
+            <button id="btnTabPersonal" class="tab-btn" onclick="cambiarPestana('tab-personal')">👥 Base de Datos de Personal & Biometría</button>
+            <button id="btnTabObras" class="tab-btn" onclick="cambiarPestana('tab-obras')">📍 Obras & Carteles QR</button>
+        </div>
+
+        <!-- ================= PESTAÑA 1: MARCAJES DE ASISTENCIA ================= -->
+        <div id="tab-marcajes">
+            
+            <!-- TARJETAS DE MÉTRICAS HOY -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-title">Trabajadores en Obra Hoy</div>
+                    <div class="metric-value val-success" id="mActivos">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Marcajes Aprobados</div>
+                    <div class="metric-value val-success" id="mAprobados">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Alertas de Fraude</div>
+                    <div class="metric-value val-danger" id="mFraudes">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Marcajes Bajo Losa (QR)</div>
+                    <div class="metric-value val-warning" id="mQR">-</div>
+                </div>
+            </div>
+
+            <!-- BARRA DE FILTROS Y EXCEL -->
+            <div class="controls-bar">
+                <div class="filters">
+                    <label style="font-size:13px; color:var(--text-sub);">Filtrar:</label>
+                    <select id="filtroEstado" onchange="recargarTabla()">
+                        <option value="TODOS">Todos los Estados</option>
+                        <option value="APROBADO">🟢 Aprobados</option>
+                        <option value="REVISION_GPS">🟡 Revisión GPS</option>
+                        <option value="REVISION_FACIAL">🟡 Revisión Facial</option>
+                        <option value="SOSPECHA_FRAUDE">🔴 Alertas de Fraude</option>
+                    </select>
+
+                    <input type="date" id="filtroFecha" onchange="recargarTabla()">
+                </div>
+                <div>
+                    <button onclick="exportarExcelLimpio()" class="btn" style="background:#059669;">
+                        📊 Descargar Excel (.CSV Formateado)
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABLA DE MARCAJES EN TIEMPO REAL -->
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Foto</th>
+                            <th>Trabajador</th>
+                            <th>Tipo</th>
+                            <th>Hora Marcada</th>
+                            <th>Obra / Proyecto</th>
+                            <th>Similitud</th>
+                            <th>Distancia</th>
+                            <th>Método</th>
+                            <th>Auditoría</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaCuerpo">
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding: 30px;">Cargando registros...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+        <!-- ================= PESTAÑA 2: BASE DE DATOS DE PERSONAL ================= -->
+        <div id="tab-personal" class="hidden">
+            <div class="controls-bar">
+                <div>
+                    <h2 style="margin:0; font-size:18px;">👥 Personal Enrolado con Biometría Facial</h2>
+                    <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-sub);">
+                        Aquí puedes auditar la foto con la que cada persona se registró en la app para evitar errores de biometría.
+                    </p>
+                </div>
+                <input type="text" id="buscadorPersonal" placeholder="🔍 Buscar por nombre..." oninput="filtrarPersonalAdmin()" style="width:260px;">
+            </div>
+
+            <div id="gridPersonal" class="workers-grid">
+                Cargando trabajadores...
+            </div>
+        </div>
+
+        <!-- ================= PESTAÑA 3: OBRAS Y GEOFENCING ================= -->
+        <div id="tab-obras" class="hidden">
+            <div class="grid-2">
+                
+                <div class="p-box">
+                    <h3 style="margin-top:0;">📍 Obras y Carteles QR (Para Sótanos)</h3>
+                    <p style="font-size:13px; color:var(--text-sub);">
+                        Imprime el cartel QR para que los trabajadores puedan fichar en zonas subterráneas sin satélites GPS.
+                    </p>
+                    <div id="listaProyectos">Cargando proyectos...</div>
+                </div>
+
+                <div class="p-box">
+                    <h3 style="margin-top:0;">➕ Agregar Nueva Obra / Proyecto</h3>
+                    <form id="formNuevoProy" onsubmit="guardarNuevoProyecto(event)">
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <input type="text" id="pNombre" placeholder="Nombre de la Obra (ej. Torre Sunset)" required>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                <input type="number" step="any" id="pLat" placeholder="Latitud (ej. 34.0522)" required>
+                                <input type="number" step="any" id="pLon" placeholder="Longitud (ej. -118.2437)" required>
+                            </div>
+                            <input type="number" id="pRadio" placeholder="Radio de Geocerca (metros)" value="150" required>
+                            <button type="submit" class="btn">Guardar Obra y Generar QR</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL DE INSPECCIÓN DETALLADA DE FOTO Y AUDITORÍA -->
+    <div id="modalInspeccion" class="modal hidden" onclick="cerrarModalFondo(event)">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modNombre" style="margin:0; font-size:18px;">Inspección de Marcaje</h3>
+                    <span id="modTipo" class="tipo-badge tipo-ENTRADA" style="margin-top:4px; display:inline-block;">ENTRADA</span>
+                </div>
+                <button class="close-btn" onclick="cerrarModal()">✕</button>
+            </div>
+
+            <div class="modal-grid">
+                <!-- Foto de la captura en el celular -->
+                <div>
+                    <div class="modal-info-label" style="margin-bottom:6px;">📸 Foto Tomada al Fichar:</div>
+                    <img id="modFoto" src="" alt="Captura de marcaje" class="modal-photo">
+                </div>
+
+                <!-- Datos de auditoría -->
+                <div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Estado Auditoría:</div>
+                        <div id="modBadgeAuditoria" style="margin-top:4px;"></div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Hora Registrada (Móvil):</div>
+                        <div id="modHoraLocal" class="modal-info-val">-</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Proyecto / Obra:</div>
+                        <div id="modProyecto" class="modal-info-val">-</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Coincidencia Facial IA:</div>
+                        <div id="modSimilitud" class="modal-info-val" style="color:#38bdf8;">-</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Distancia a la Obra:</div>
+                        <div id="modDistancia" class="modal-info-val">-</div>
+                    </div>
+                    <div class="modal-info-item">
+                        <div class="modal-info-label">Método de Ubicación:</div>
+                        <div id="modMetodo" class="modal-info-val">-</div>
+                    </div>
+
+                    <div id="modBotonMapa" style="margin-top:14px;"></div>
+                </div>
+            </div>
+
+            <div id="modNotas" style="margin-top:16px; padding:12px; background:#0f172a; border-radius:8px; font-size:12px; color:#cbd5e1; border:1px solid var(--border);"></div>
+
+            <!-- Botón de Borrado en el Modal -->
+            <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+                <button id="btnBorrarModal" class="btn btn-danger" style="font-size:13px;">
+                    🗑️ Eliminar este Marcaje
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let datosMarcajes = [];
+        let datosEmpleados = [];
+
+        // ================= GESTIÓN DE PESTAÑAS =================
+        function cambiarPestana(idTab) {
+            document.getElementById('tab-marcajes').classList.add('hidden');
+            document.getElementById('tab-personal').classList.add('hidden');
+            document.getElementById('tab-obras').classList.add('hidden');
+
+            document.getElementById('btnTabMarcajes').classList.remove('active');
+            document.getElementById('btnTabPersonal').classList.remove('active');
+            document.getElementById('btnTabObras').classList.remove('active');
+
+            document.getElementById(idTab).classList.remove('hidden');
+
+            if (idTab === 'tab-marcajes') document.getElementById('btnTabMarcajes').classList.add('active');
+            if (idTab === 'tab-personal') {
+                document.getElementById('btnTabPersonal').classList.add('active');
+                cargarEmpleadosAdmin();
+            }
+            if (idTab === 'tab-obras') document.getElementById('btnTabObras').classList.add('active');
+        }
+
+        async function recargarDatos() {
+            await cargarMetricas();
+            await recargarTabla();
+            await cargarProyectosAdmin();
+            await cargarEmpleadosAdmin();
+        }
+
+        async function cargarMetricas() {
+            try {
+                const res = await fetch("/api/dashboard_metricas");
+                const m = await res.json();
+                document.getElementById('mActivos').innerText = m.trabajadores_activos_hoy;
+                document.getElementById('mAprobados').innerText = m.aprobados_hoy;
+                document.getElementById('mFraudes').innerText = m.alertas_fraude_hoy;
+                document.getElementById('mQR').innerText = m.marcajes_bajo_losa_qr;
+            } catch (e) {
+                console.warn("Error cargando métricas:", e);
+            }
+        }
+
+        async function recargarTabla() {
+            const estado = document.getElementById('filtroEstado').value;
+            const fecha = document.getElementById('filtroFecha').value;
+            let url = `/api/reportes?estado=${estado}`;
+            if (fecha) url += `&fecha=${fecha}`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                datosMarcajes = data.marcajes || [];
+                renderizarTabla(datosMarcajes);
+            } catch (e) {
+                console.warn("Error cargando tabla:", e);
+            }
+        }
+
+        function renderizarTabla(items) {
+            const tbody = document.getElementById('tablaCuerpo');
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 30px; color:#94a3b8;">No hay marcajes que coincidan con el filtro seleccionado.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(m => {
+                const hora = new Date(m.timestamp_local).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+                const fecha = new Date(m.timestamp_local).toLocaleDateString();
+                const fotoTag = m.foto_path ? 
+                    `<img src="${m.foto_path}" class="thumb" alt="Foto" onclick="abrirModalInspeccion(${m.id})" title="Click para ver foto en grande">` : 
+                    '<span style="color:#64748b; font-size:12px;">Sin foto</span>';
+                const distText = m.distancia_metros !== null ? `${Math.round(m.distancia_metros)}m` : 'N/A';
+                
+                return `
+                    <tr>
+                        <td>${fotoTag}</td>
+                        <td style="font-weight:700;">${m.empleado_nombre}</td>
+                        <td><span class="tipo-badge tipo-${m.tipo}">${m.tipo}</span></td>
+                        <td>
+                            <div>${hora}</div>
+                            <div style="font-size:11px; color:#64748b;">${fecha}</div>
+                        </td>
+                        <td>${m.proyecto_nombre}</td>
+                        <td style="font-weight:bold; color:#38bdf8;">${m.similitud_facial}%</td>
+                        <td>${distText}</td>
+                        <td><span style="font-size:12px; font-weight:600;">${m.metodo_ubicacion}</span></td>
+                        <td><span class="badge badge-${m.estado_auditoria}">${m.estado_auditoria}</span></td>
+                        <td style="white-space:nowrap;">
+                            <button onclick="abrirModalInspeccion(${m.id})" class="btn btn-outline" style="padding:4px 8px; font-size:12px; margin-right:4px;">
+                                🔍 Ver
+                            </button>
+                            <button onclick="eliminarMarcaje(${m.id}, '${m.empleado_nombre}')" class="btn btn-danger" style="padding:4px 8px; font-size:12px;" title="Borrar marcaje">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ================= BORRAR MARCAJES (ADMIN) =================
+        async function eliminarMarcaje(id, nombre) {
+            if (!confirm(`¿Estás seguro de que deseas eliminar el registro de ${nombre}?`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/marcajes/${id}`, { method: "DELETE" });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    cerrarModal();
+                    recargarDatos();
+                } else {
+                    alert("Error eliminando registro: " + data.error);
+                }
+            } catch (e) {
+                alert("Error de red al eliminar");
+            }
+        }
+
+        // ================= MODAL DE INSPECCIÓN =================
+        function abrirModalInspeccion(id) {
+            const m = datosMarcajes.find(item => item.id === id);
+            if (!m) return;
+
+            document.getElementById('modNombre').innerText = m.empleado_nombre;
+            
+            const tipoEl = document.getElementById('modTipo');
+            tipoEl.innerText = m.tipo;
+            tipoEl.className = `tipo-badge tipo-${m.tipo}`;
+
+            const fotoEl = document.getElementById('modFoto');
+            fotoEl.src = m.foto_path || '/static/icon.png';
+
+            document.getElementById('modBadgeAuditoria').innerHTML = `<span class="badge badge-${m.estado_auditoria}">${m.estado_auditoria}</span>`;
+            document.getElementById('modHoraLocal').innerText = new Date(m.timestamp_local).toLocaleString();
+            document.getElementById('modProyecto').innerText = m.proyecto_nombre;
+            document.getElementById('modSimilitud').innerText = `${m.similitud_facial}% de certeza biométrica`;
+            document.getElementById('modDistancia').innerText = m.distancia_metros !== null ? `${Math.round(m.distancia_metros)} metros de la obra` : 'No calculada';
+            document.getElementById('modMetodo').innerText = m.metodo_ubicacion;
+            document.getElementById('modNotas').innerText = `Observación técnica: ${m.notas || 'Sin advertencias.'}`;
+
+            // Configurar botón de borrado en el modal
+            document.getElementById('btnBorrarModal').onclick = () => eliminarMarcaje(m.id, m.empleado_nombre);
+
+            const mapaBtnContainer = document.getElementById('modBotonMapa');
+            if (m.lat && m.lon) {
+                mapaBtnContainer.innerHTML = `
+                    <a href="https://www.google.com/maps/search/?api=1&query=${m.lat},${m.lon}" target="_blank" class="btn btn-maps" style="width:100%; justify-content:center; box-sizing:border-box;">
+                        📍 Ver Ubicación Exacta en Google Maps
+                    </a>
+                `;
+            } else {
+                mapaBtnContainer.innerHTML = '<span style="font-size:12px; color:#94a3b8;">Ubicación GPS no registrada</span>';
+            }
+
+            document.getElementById('modalInspeccion').classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalInspeccion').classList.add('hidden');
+        }
+        function cerrarModalFondo(e) {
+            if (e.target.id === 'modalInspeccion') cerrarModal();
+        }
+
+        // ================= PLANTILLA DE TRABAJADORES (TAB 2) =================
+        async function cargarEmpleadosAdmin() {
+            try {
+                const res = await fetch("/api/empleados");
+                const data = await res.json();
+                datosEmpleados = data.empleados || [];
+                renderizarEmpleados(datosEmpleados);
+            } catch(e) {
+                console.warn("Error cargando empleados:", e);
+            }
+        }
+
+        function renderizarEmpleados(lista) {
+            const container = document.getElementById('gridPersonal');
+            if (!lista || lista.length === 0) {
+                container.innerHTML = '<div style="color:#94a3b8; padding:20px;">No hay trabajadores registrados en la base de datos biométrica.</div>';
+                return;
+            }
+
+            container.innerHTML = lista.map(emp => {
+                const avatar = emp.foto_perfil || '/static/icon.png';
+                const fecha = new Date(emp.fecha_registro).toLocaleDateString();
+                const tel = emp.telefono ? `📞 ${emp.telefono}` : '<span style="color:#64748b;">Sin teléfono</span>';
+
+                return `
+                    <div class="worker-card">
+                        <img src="${avatar}" alt="${emp.nombre}" class="worker-avatar" onclick="abrirFotoGrande('${avatar}')" title="Click para ver foto de enrolamiento">
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                ${emp.nombre}
+                            </div>
+                            <div style="font-size:13px; color:#38bdf8; margin:2px 0;">${tel}</div>
+                            <div style="font-size:11px; color:#94a3b8;">Registrado: ${fecha}</div>
+                        </div>
+                        <div>
+                            <button onclick="eliminarTrabajador(${emp.id}, '${emp.nombre}')" class="btn btn-danger" style="padding:6px 10px; font-size:12px;" title="Eliminar trabajador y reiniciar su biometría">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filtrarPersonalAdmin() {
+            const q = document.getElementById('buscadorPersonal').value.toLowerCase().trim();
+            const filtrados = datosEmpleados.filter(e => e.nombre.toLowerCase().includes(q) || (e.telefono && e.telefono.includes(q)));
+            renderizarEmpleados(filtrados);
+        }
+
+        function abrirFotoGrande(src) {
+            window.open(src, '_blank');
+        }
+
+        async function eliminarTrabajador(id, nombre) {
+            if (!confirm(`¿Estás seguro de que deseas eliminar a ${nombre} de la base de datos biométrica?\n\nDeberá volver a enrolar sus fotos en su celular.`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/empleados/${id}`, { method: "DELETE" });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    cargarEmpleadosAdmin();
+                } else {
+                    alert("Error eliminando trabajador: " + data.error);
+                }
+            } catch(e) {
+                alert("Error de red");
+            }
+        }
+
+        // ================= PROYECTOS (TAB 3) =================
+        async function cargarProyectosAdmin() {
+            try {
+                const res = await fetch("/api/proyectos");
+                const data = await res.json();
+                const container = document.getElementById('listaProyectos');
+                if (data.proyectos && data.proyectos.length > 0) {
+                    container.innerHTML = data.proyectos.map(p => `
+                        <div class="project-item">
+                            <div>
+                                <div style="font-weight:700;">${p.nombre}</div>
+                                <div style="font-size:12px; color:#94a3b8;">
+                                    Radio: ${p.radio_metros}m • Lat: ${p.lat}, Lon: ${p.lon}
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <a href="/api/qr_proyecto/${p.id}" target="_blank" download="QR_${p.nombre}.png" class="btn btn-outline" style="font-size:12px; padding:6px 10px;">
+                                    🖨 Cartel QR
+                                </a>
+                                <button onclick="eliminarProyecto(${p.id}, '${p.nombre}')" class="btn btn-danger" style="font-size:12px; padding:6px 10px;">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {}
+        }
+
+        async function guardarNuevoProyecto(e) {
+            e.preventDefault();
+            const fd = new FormData();
+            fd.append("nombre", document.getElementById('pNombre').value);
+            fd.append("lat", document.getElementById('pLat').value);
+            fd.append("lon", document.getElementById('pLon').value);
+            fd.append("radio_metros", document.getElementById('pRadio').value);
+
+            const res = await fetch("/api/proyectos", { method: "POST", body: fd });
+            const data = await res.json();
+            if (data.status === "ok") {
+                alert("✅ Obra agregada exitosamente.");
+                document.getElementById('formNuevoProy').reset();
+                cargarProyectosAdmin();
+            }
+        }
+
+        async function eliminarProyecto(id, nombre) {
+            if (!confirm(`¿Eliminar la obra '${nombre}'?`)) return;
+            await fetch(`/api/proyectos/${id}`, { method: "DELETE" });
+            cargarProyectosAdmin();
+        }
+
+        // ================= EXCEL PROFESIONAL (CSV CON PUNTO Y COMA) =================
+        function exportarExcelLimpio() {
+            if (datosMarcajes.length === 0) {
+                alert("No hay marcajes para exportar con el filtro actual.");
+                return;
+            }
+
+            const encabezados = [
+                "ID",
+                "Fecha Marcaje",
+                "Hora Local Marcada",
+                "Nombre del Trabajador",
+                "Tipo (Entrada/Salida)",
+                "Obra o Proyecto",
+                "Estado Auditoria",
+                "Similitud Facial (%)",
+                "Distancia a Obra (Metros)",
+                "Metodo de Ubicacion",
+                "Precision GPS (m)",
+                "Latitud",
+                "Longitud",
+                "Observaciones o Alertas"
+            ];
+
+            let csvContenido = encabezados.join(";") + "\r\n";
+
+            datosMarcajes.forEach(m => {
+                const fechaObj = new Date(m.timestamp_local);
+                const fecha = fechaObj.toLocaleDateString('es-ES');
+                const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                const fila = [
+                    m.id,
+                    `"${fecha}"`,
+                    `"${hora}"`,
+                    `"${m.empleado_nombre || ''}"`,
+                    `"${m.tipo || ''}"`,
+                    `"${m.proyecto_nombre || ''}"`,
+                    `"${m.estado_auditoria || ''}"`,
+                    `"${m.similitud_facial || 0}%"`,
+                    `"${m.distancia_metros !== null ? Math.round(m.distancia_metros) + ' m' : 'N/A'}"`,
+                    `"${m.metodo_ubicacion || ''}"`,
+                    `"${m.gps_accuracy ? '±' + Math.round(m.gps_accuracy) + ' m' : 'N/A'}"`,
+                    m.lat || "",
+                    m.lon || "",
+                    `"${(m.notas || '').replace(/"/g, '""')}"`
+                ];
+
+                csvContenido += fila.join(";") + "\r\n";
+            });
+
+            const blob = new Blob(["\uFEFF" + csvContenido], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            const fechaHoy = new Date().toISOString().split('T')[0];
+            const estadoFiltro = document.getElementById('filtroEstado').value;
+            
+            link.href = URL.createObjectURL(blob);
+            link.download = `Asistencia_RyanPacific_${estadoFiltro}_${fechaHoy}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        setInterval(recargarDatos, 20000);
+        window.onload = recargarDatos;
+    </script>
+</body>
+</html>

@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Hub - Asistencia Ryan Pacific</title>
+    
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#16a34a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+    <!-- Librería local para escanear QR sin internet bajo losas -->
+    <script src="/static/jsQR.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #16a34a;
+            --primary-dark: #15803d;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --danger: #ef4444;
+            --warning: #eab308;
+            --border: #334155;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 440px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Cabecera corporativa */
+        .header {
+            background: var(--card-bg);
+            padding: 12px 16px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--border);
+        }
+        .header img.logo { height: 42px; object-fit: contain; }
+        .network-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .net-online { background: #064e3b; color: #34d399; }
+        .net-offline { background: #7f1d1d; color: #fca5a5; }
+
+        /* Tarjetas */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        /* Selector de proyecto y usuario */
+        .user-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .user-info { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+        .btn-change-user {
+            background: #334155;
+            color: #cbd5e1;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            color: white;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            outline: none;
+        }
+
+        /* Visor de Cámara y Guía de Rostro */
+        .camera-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            border: 2px solid var(--border);
+            margin-bottom: 12px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Efecto espejo */
+        }
+        video.rear { transform: none; }
+        
+        /* Óvalo guía para encuadre con casco */
+        .face-oval {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 80%;
+            border: 2px dashed rgba(52, 211, 153, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .face-oval span {
+            background: rgba(15, 23, 42, 0.7);
+            color: #34d399;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .cam-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-icon {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+            color: white;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Estado de GPS */
+        .gps-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: 8px 12px;
+            background: #0f172a;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+        }
+        .gps-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .gps-green { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .gps-yellow { background: #eab308; }
+        .gps-red { background: #ef4444; }
+
+        .btn-qr-fallback {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Botones de Marcaje */
+        .punch-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .btn-punch {
+            padding: 16px 10px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 800;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.1s, opacity 0.2s;
+            text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .btn-punch:active { transform: scale(0.97); }
+        .btn-in { background: linear-gradient(135deg, #16a34a, #15803d); }
+        .btn-out { background: linear-gradient(135deg, #ea580c, #c2410c); }
+
+        /* Notificación de sincronización */
+        .sync-counter {
+            font-size: 12px;
+            text-align: center;
+            color: #94a3b8;
+            margin-top: 6px;
+        }
+
+        /* Modal de Confirmación y Enrolamiento */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 1000;
+        }
+        .modal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-card h3 { margin-top: 0; font-size: 20px; }
+        .modal-card input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 16px 0;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Banner de instalación PWA */
+        .install-banner {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid #3b82f6;
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+            animation: fadeIn 0.3s;
+        }
+        .btn-install-pwa {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-install-pwa:active { background: #1d4ed8; }
+        .btn-close-banner {
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .success-box {
+            background: #064e3b;
+            border: 2px solid #059669;
+            color: #ecfdf5;
+            padding: 18px;
+            border-radius: 14px;
+            margin-top: 10px;
+            animation: fadeIn 0.3s;
+        }
+        .success-box h2 { margin: 0 0 6px 0; font-size: 22px; color: #34d399; }
+
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- CABECERA -->
+        <div class="header">
+            <img src="/static/logo.png" alt="Ryan Pacific Logo" class="logo">
+            <div id="netStatus" class="network-badge net-online">
+                <span class="gps-dot gps-green"></span> Conectado
+            </div>
+        </div>
+
+        <!-- BANNER DE INSTALACIÓN EN CELULAR (PWA) -->
+        <div id="pwaInstallBanner" class="install-banner hidden">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="/static/icon.png" style="width:34px; height:34px; border-radius:8px;" alt="App">
+                <div>
+                    <div style="font-weight:700; font-size:13px;">Instalar App en Celular</div>
+                    <div style="font-size:11px; color:#94a3b8;">Acceso rápido en tu pantalla</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <button id="btnInstalarPwa" class="btn-install-pwa">📲 Instalar</button>
+                <button id="btnCerrarBanner" class="btn-close-banner" title="Cerrar">✕</button>
+            </div>
+        </div>
+
+        <!-- TARJETA PRINCIPAL -->
+        <div class="card">
+            
+            <div class="user-bar">
+                <div class="user-info">
+                    <span>👷‍♂️</span>
+                    <span id="lblTrabajador">Cargando...</span>
+                </div>
+                <button id="btnCambiarTrabajador" class="btn-change-user">Cambiar / Enrolar</button>
+            </div>
+
+            <!-- PROYECTO SELECCIONADO -->
+            <select id="selProyecto">
+                <option value="">-- Seleccionar Obra / Proyecto --</option>
+            </select>
+
+            <!-- CÁMARA Y ENCUADRE -->
+            <div class="camera-box" id="camContainer">
+                <video id="videoFeed" autoplay playsinline muted></video>
+                <div class="face-oval" id="faceGuide">
+                    <span>ÁREA DEL ROSTRO</span>
+                </div>
+                <div class="cam-controls">
+                    <button id="btnSwitchCam" class="btn-icon" title="Voltear cámara">🔄</button>
+                </div>
+            </div>
+
+            <!-- ESTADO DE GPS / QR SÓTANO -->
+            <div class="gps-indicator">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span id="gpsDot" class="gps-dot gps-yellow"></span>
+                    <span id="gpsTexto">Obteniendo satélites GPS...</span>
+                </div>
+                <button id="btnActivarQR" class="btn-qr-fallback">📷 QR Sótano</button>
+            </div>
+
+            <!-- BOTONES DE MARCAJE INMEDIATO -->
+            <div class="punch-grid">
+                <button id="btnEntrada" class="btn-punch btn-in">
+                    <span style="font-size:24px;">🟢</span>
+                    <span>Entrada</span>
+                </button>
+                <button id="btnSalida" class="btn-punch btn-out">
+                    <span style="font-size:24px;">🔴</span>
+                    <span>Salida</span>
+                </button>
+            </div>
+
+            <div id="syncBadge" class="sync-counter">
+                📦 0 marcajes pendientes por subir
+            </div>
+
+            <!-- MENSAJE DE CONFIRMACIÓN INSTANTÁNEA -->
+            <div id="confirmacionBox" class="success-box hidden">
+                <h2 id="confTitulo">✅ ENTRADA REGISTRADA</h2>
+                <div id="confHora" style="font-size: 24px; font-weight:800; margin-bottom: 6px;">07:00:00 AM</div>
+                <div id="confDetalle" style="font-size: 13px; color: #a7f3d0;">Guardado localmente. Se sincroniza en automático.</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- CANVAS OCULTO PARA FOTOGRAMAS -->
+    <canvas id="calcCanvas" class="hidden"></canvas>
+
+    <!-- MODAL DE PRIMER REGISTRO / ENROLAMIENTO -->
+    <div id="modalOnboarding" class="modal hidden">
+        <div class="modal-card">
+            <h3>👷‍♂️ Identificación en este Celular</h3>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
+                Empieza a escribir tu nombre para seleccionarlo de la lista oficial de la empresa.
+            </p>
+            <input type="text" id="inputNombreObrero" list="listaNombresOficiales" placeholder="Escribe tu nombre oficial..." autocomplete="off">
+            <datalist id="listaNombresOficiales"></datalist>
+
+            <input type="tel" id="inputTelefonoObrero" placeholder="Tu número de teléfono móvil..." autocomplete="tel">
+            
+            <button id="btnGuardarPerfil" class="btn-primary">Guardar e Iniciar</button>
+        </div>
+    </div>
+
+    <!-- MODAL GUIA PARA IPHONE (SAFARI) -->
+    <div id="modalIosGuide" class="modal hidden">
+        <div class="modal-card">
+            <h3>📲 Instalar en tu iPhone</h3>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
+                Para tener el icono en tu pantalla como una app nativa:
+            </p>
+            <div style="background:#0f172a; padding:14px; border-radius:10px; text-align:left; font-size:14px; margin-bottom:16px; border:1px solid #334155; line-height:1.6;">
+                <p style="margin:4px 0;"><b>1.</b> Toca el botón <b>Compartir</b> <span style="font-size:18px; color:#38bdf8;">⎋</span> (cuadrito con flecha abajo en Safari).</p>
+                <p style="margin:4px 0;"><b>2.</b> Desliza hacia abajo y elige <b>"Añadir a pantalla de inicio"</b> ➕.</p>
+                <p style="margin:4px 0;"><b>3.</b> Toca <b>"Añadir"</b> arriba a la derecha. ¡Listo!</p>
+            </div>
+            <button onclick="document.getElementById('modalIosGuide').classList.add('hidden')" class="btn-primary">Entendido</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE LA APLICACIÓN -->
+    <script>
+        // ================= CONFIGURACIÓN Y ESTADO =================
+        let miGPS = { lat: null, lon: null, accuracy: null };
+        let currentFacingMode = "user";
+        let videoStream = null;
+        let qrEscaneadoActivo = null;
+        let escaneandoQR = false;
+        let db = null;
+
+        const ui = {
+            video: document.getElementById('videoFeed'),
+            canvas: document.getElementById('calcCanvas'),
+            selProyecto: document.getElementById('selProyecto'),
+            lblTrabajador: document.getElementById('lblTrabajador'),
+            netStatus: document.getElementById('netStatus'),
+            gpsDot: document.getElementById('gpsDot'),
+            gpsTexto: document.getElementById('gpsTexto'),
+            btnEntrada: document.getElementById('btnEntrada'),
+            btnSalida: document.getElementById('btnSalida'),
+            btnSwitchCam: document.getElementById('btnSwitchCam'),
+            btnActivarQR: document.getElementById('btnActivarQR'),
+            btnCambiar: document.getElementById('btnCambiarTrabajador'),
+            syncBadge: document.getElementById('syncBadge'),
+            confirmacionBox: document.getElementById('confirmacionBox'),
+            confTitulo: document.getElementById('confTitulo'),
+            confHora: document.getElementById('confHora'),
+            confDetalle: document.getElementById('confDetalle'),
+            modalOnboarding: document.getElementById('modalOnboarding'),
+            inputNombre: document.getElementById('inputNombreObrero'),
+            inputTelefono: document.getElementById('inputTelefonoObrero'),
+            listaNombres: document.getElementById('listaNombresOficiales'),
+            btnGuardarPerfil: document.getElementById('btnGuardarPerfil'),
+            pwaInstallBanner: document.getElementById('pwaInstallBanner'),
+            btnInstalarPwa: document.getElementById('btnInstalarPwa'),
+            btnCerrarBanner: document.getElementById('btnCerrarBanner'),
+            modalIosGuide: document.getElementById('modalIosGuide')
+        };
+
+        // ================= INSTALACIÓN PWA (Android e iPhone) =================
+        let deferredPrompt = null;
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+        if (!isStandalone && !sessionStorage.getItem('banner_cerrado')) {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                ui.pwaInstallBanner.classList.remove('hidden');
+            });
+
+            if (isIos) {
+                ui.pwaInstallBanner.classList.remove('hidden');
+            }
+        }
+
+        ui.btnInstalarPwa.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    ui.pwaInstallBanner.classList.add('hidden');
+                }
+                deferredPrompt = null;
+            } else if (isIos) {
+                ui.modalIosGuide.classList.remove('hidden');
+            } else {
+                alert("Para instalar la app, abre el menú de tu navegador (los 3 puntos ⋮) y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.");
+            }
+        });
+
+        ui.btnCerrarBanner.addEventListener('click', () => {
+            ui.pwaInstallBanner.classList.add('hidden');
+            sessionStorage.setItem('banner_cerrado', '1');
+        });
+
+        // ================= BASE DE DATOS LOCAL (IndexedDB) =================
+        function iniciarIndexedDB() {
+            const req = indexedDB.open("RPCS_PunchDB_v2", 1);
+            req.onupgradeneeded = (e) => {
+                const dbInstance = e.target.result;
+                if (!dbInstance.objectStoreNames.contains("cola_asistencia")) {
+                    dbInstance.createObjectStore("cola_asistencia", { keyPath: "id_local", autoIncrement: true });
+                }
+            };
+            req.onsuccess = (e) => {
+                db = e.target.result;
+                actualizarContadorPendientes();
+                sincronizarLoteSiHayRed();
+            };
+        }
+
+        function guardarPunchLocal(punch) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction("cola_asistencia", "readwrite");
+                const store = tx.objectStore("cola_asistencia");
+                const req = store.add(punch);
+                req.onsuccess = () => {
+                    actualizarContadorPendientes();
+                    resolve(true);
+                };
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function actualizarContadorPendientes() {
+            if (!db) return;
+            const tx = db.transaction("cola_asistencia", "readonly");
+            const store = tx.objectStore("cola_asistencia");
+            const req = store.count();
+            req.onsuccess = () => {
+                const count = req.result;
+                ui.syncBadge.innerText = count > 0 ? `🔄 ${count} marcaje(s) por subir a la nube` : `✅ Todos los marcajes al día`;
+                ui.syncBadge.style.color = count > 0 ? "#facc15" : "#4ade80";
+            };
+        }
+
+        // ================= CÁMARA Y VIDEO =================
+        async function encenderCamara(facing = "user") {
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+            }
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: facing,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                };
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                ui.video.srcObject = videoStream;
+                if (facing === "environment") {
+                    ui.video.classList.add('rear');
+                } else {
+                    ui.video.classList.remove('rear');
+                }
+            } catch (err) {
+                console.warn("Error accediendo a cámara:", err);
+                alert("Por favor permite el acceso a la cámara para poder registrar tu rostro.");
+            }
+        }
+
+        ui.btnSwitchCam.addEventListener('click', () => {
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            encenderCamara(currentFacingMode);
+        });
+
+        // ================= CAPTURA ULTRA RÁPIDA =================
+        function capturarFrameBase64() {
+            const ctx = ui.canvas.getContext('2d');
+            const w = ui.video.videoWidth || 640;
+            const h = ui.video.videoHeight || 480;
+            ui.canvas.width = w;
+            ui.canvas.height = h;
+
+            ctx.save();
+            if (currentFacingMode === "user") {
+                // Voltear horizontalmente para que coincida con el modo espejo
+                ctx.translate(w, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(ui.video, 0, 0, w, h);
+            ctx.restore();
+
+            // Comprimir como JPEG 85% calidad para reconocimiento nítido
+            return ui.canvas.toDataURL('image/jpeg', 0.85);
+        }
+
+        // ================= GPS TRACKING =================
+        function iniciarGPS() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (pos) => {
+                        miGPS.lat = pos.coords.latitude;
+                        miGPS.lon = pos.coords.longitude;
+                        miGPS.accuracy = pos.coords.accuracy;
+
+                        if (pos.coords.accuracy <= 40) {
+                            ui.gpsDot.className = "gps-dot gps-green";
+                            ui.gpsTexto.innerText = `GPS Preciso (±${Math.round(pos.coords.accuracy)}m)`;
+                        } else {
+                            ui.gpsDot.className = "gps-dot gps-yellow";
+                            ui.gpsTexto.innerText = `GPS Aceptable (±${Math.round(pos.coords.accuracy)}m)`;
+                        }
+                    },
+                    (err) => {
+                        ui.gpsDot.className = "gps-dot gps-red";
+                        ui.gpsTexto.innerText = `Sin señal GPS (Usa 'QR Sótano')`;
+                    },
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+                );
+            } else {
+                ui.gpsDot.className = "gps-dot gps-red";
+                ui.gpsTexto.innerText = "GPS no soportado en navegador";
+            }
+        }
+
+        // ================= ESCÁNER DE QR PARA SÓTANOS / BAJO LOSA =================
+        ui.btnActivarQR.addEventListener('click', () => {
+            escaneandoQR = !escaneandoQR;
+            if (escaneandoQR) {
+                ui.btnActivarQR.innerText = "❌ Cancelar QR";
+                ui.btnActivarQR.style.background = "#ef4444";
+                currentFacingMode = "environment";
+                encenderCamara("environment");
+                escanearLoop();
+            } else {
+                detenerQR();
+            }
+        });
+
+        function detenerQR() {
+            escaneandoQR = false;
+            ui.btnActivarQR.innerText = "📷 QR Sótano";
+            ui.btnActivarQR.style.background = "#3b82f6";
+        }
+
+        function escanearLoop() {
+            if (!escaneandoQR || !ui.video.videoWidth) {
+                if (escaneandoQR) requestAnimationFrame(escanearLoop);
+                return;
+            }
+
+            const ctx = ui.canvas.getContext('2d');
+            ui.canvas.width = ui.video.videoWidth;
+            ui.canvas.height = ui.video.videoHeight;
+            ctx.drawImage(ui.video, 0, 0, ui.canvas.width, ui.canvas.height);
+            const imgData = ctx.getImageData(0, 0, ui.canvas.width, ui.canvas.height);
+
+            if (window.jsQR) {
+                const code = jsQR(imgData.data, imgData.width, imgData.height);
+                if (code && code.data.startsWith("RPCS-")) {
+                    qrEscaneadoActivo = code.data;
+                    reproducirSonidoBeep();
+                    alert(`✅ QR de Obra Detectado:\n${code.data}\n\nPresiona Entrada o Salida ahora.`);
+                    detenerQR();
+                    return;
+                }
+            }
+            requestAnimationFrame(escanearLoop);
+        }
+
+        // ================= EJECUCIÓN DEL MARCAJE INMEDIATO =================
+        ui.btnEntrada.addEventListener('click', () => registrarMarcaje("ENTRADA"));
+        ui.btnSalida.addEventListener('click', () => registrarMarcaje("SALIDA"));
+
+        async function registrarMarcaje(tipo) {
+            const obrero = localStorage.getItem("rpcs_nombre");
+            if (!obrero) {
+                abrirModalPerfil();
+                return;
+            }
+
+            const proy = ui.selProyecto.value;
+            if (!proy) {
+                alert("Por favor selecciona en qué Obra / Proyecto te encuentras.");
+                return;
+            }
+
+            // Bloquear botones brevemente
+            ui.btnEntrada.disabled = true;
+            ui.btnSalida.disabled = true;
+
+            const ahora = new Date();
+            const timestampLocal = ahora.toISOString();
+            const horaFormateada = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            // Capturar selfie al instante
+            const fotoBase64 = capturarFrameBase64();
+
+            const punchData = {
+                empleado_nombre: obrero,
+                tipo: tipo,
+                proyecto_nombre: proy,
+                timestamp_local: timestampLocal,
+                lat: miGPS.lat,
+                lon: miGPS.lon,
+                gps_accuracy: miGPS.accuracy,
+                qr_token: qrEscaneadoActivo,
+                foto: fotoBase64,
+                offline_sincronizado: false
+            };
+
+            // 1. GUARDAR EN EL CELULAR EN 0.1 SEGUNDOS
+            await guardarPunchLocal(punchData);
+
+            // Feedback háptico y sonoro
+            if ("vibrate" in navigator) navigator.vibrate([80, 40, 80]);
+            reproducirSonidoExito();
+
+            // Mostrar Confirmación en pantalla
+            ui.confTitulo.innerText = `✅ ${tipo} REGISTRADA`;
+            ui.confTitulo.style.color = tipo === "ENTRADA" ? "#34d399" : "#fb923c";
+            ui.confHora.innerText = horaFormateada;
+            ui.confDetalle.innerText = `Obra: ${proy} • Identidad: ${obrero}`;
+            ui.confirmacionBox.classList.remove('hidden');
+
+            // Limpiar QR si se usó
+            qrEscaneadoActivo = null;
+
+            setTimeout(() => {
+                ui.btnEntrada.disabled = false;
+                ui.btnSalida.disabled = false;
+            }, 2500);
+
+            // 2. DISPARAR SINCRONIZACIÓN EN SEGUNDO PLANO
+            sincronizarLoteSiHayRed();
+        }
+
+        // ================= MOTOR DE SINCRONIZACIÓN OFFLINE =================
+        let sincEnProgreso = false;
+        async function sincronizarLoteSiHayRed() {
+            if (!navigator.onLine || sincEnProgreso || !db) return;
+
+            const tx = db.transaction("cola_asistencia", "readonly");
+            const store = tx.objectStore("cola_asistencia");
+            const req = store.getAll();
+
+            req.onsuccess = async () => {
+                const items = req.result;
+                if (!items || items.length === 0) return;
+
+                sincEnProgreso = true;
+                ui.syncBadge.innerText = `⏳ Subiendo ${items.length} marcaje(s)...`;
+
+                try {
+                    const resp = await fetch("/api/sincronizar_lote", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(items)
+                    });
+                    const resJson = await resp.json();
+
+                    if (resJson.status === "ok") {
+                        // Limpiar los elementos sincronizados
+                        const delTx = db.transaction("cola_asistencia", "readwrite");
+                        const delStore = delTx.objectStore("cola_asistencia");
+                        items.forEach(it => delStore.delete(it.id_local));
+                        delTx.oncomplete = () => {
+                            sincEnProgreso = false;
+                            actualizarContadorPendientes();
+                        };
+                    } else {
+                        sincEnProgreso = false;
+                        actualizarContadorPendientes();
+                    }
+                } catch (err) {
+                    console.warn("Fallo de conexión al sincronizar lote:", err);
+                    sincEnProgreso = false;
+                    actualizarContadorPendientes();
+                }
+            };
+        }
+
+        window.addEventListener('online', () => {
+            ui.netStatus.className = "network-badge net-online";
+            ui.netStatus.innerHTML = '<span class="gps-dot gps-green"></span> Conectado';
+            sincronizarLoteSiHayRed();
+        });
+
+        window.addEventListener('offline', () => {
+            ui.netStatus.className = "network-badge net-offline";
+            ui.netStatus.innerHTML = '<span class="gps-dot gps-red"></span> Modo Offline';
+        });
+
+        // Intentar sincronizar periódicamente cada 30 segundos
+        setInterval(sincronizarLoteSiHayRed, 30000);
+
+        // ================= GESTIÓN DE PERFIL DEL TRABAJADOR =================
+        function cargarPerfilActual() {
+            const nombre = localStorage.getItem("rpcs_nombre");
+            if (nombre) {
+                ui.lblTrabajador.innerText = nombre;
+            } else {
+                abrirModalPerfil();
+            }
+        }
+
+        function abrirModalPerfil() {
+            ui.modalOnboarding.classList.remove('hidden');
+        }
+
+        ui.btnCambiar.addEventListener('click', abrirModalPerfil);
+
+        ui.btnGuardarPerfil.addEventListener('click', async () => {
+            const nom = ui.inputNombre.value.trim();
+            const tel = ui.inputTelefono ? ui.inputTelefono.value.trim() : "";
+            if (!nom) return alert("Por favor escribe tu nombre completo");
+
+            localStorage.setItem("rpcs_nombre", nom);
+            localStorage.setItem("rpcs_telefono", tel);
+            ui.lblTrabajador.innerText = nom;
+            ui.modalOnboarding.classList.add('hidden');
+
+            // Preguntar si desea enrolar su biometría en el servidor
+            if (confirm(`¿Deseas registrar tu biometría facial para ${nom} ahora mismo?`)) {
+                await ejecutarEnrolamientoFacial(nom, tel);
+            }
+        });
+
+        async function ejecutarEnrolamientoFacial(nombre, telefono) {
+            alert("Tomaremos 2 fotos para tu perfil biométrico:\n1. Normal\n2. Con tu casco y gafas de obra.");
+            
+            // Foto 1
+            alert("PASO 1: Mira a la cámara sin accesorios y presiona Aceptar");
+            const foto1B64 = capturarFrameBase64();
+            
+            // Foto 2
+            alert("PASO 2: Colócate tu casco y gafas de obra y presiona Aceptar");
+            const foto2B64 = capturarFrameBase64();
+
+            const b1 = await (await fetch(foto1B64)).blob();
+            const b2 = await (await fetch(foto2B64)).blob();
+
+            const fd = new FormData();
+            fd.append("nombre", nombre);
+            fd.append("telefono", telefono || "");
+            fd.append("puesto", "Obrero / Campo");
+            fd.append("files", b1, "perfil_normal.jpg");
+            fd.append("files", b2, "perfil_casco.jpg");
+
+            try {
+                ui.lblTrabajador.innerText = "Guardando biometría...";
+                const res = await fetch("/api/enrolar", { method: "POST", body: fd });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    alert(`✅ ¡Excelente! Tu biometría ha quedado registrada con ${data.total_vectores} perfiles.`);
+                } else {
+                    alert("Aviso: " + (data.error || "No se pudo completar el registro biométrico. Podrás enrolarte después."));
+                }
+            } catch (e) {
+                alert("Modo offline: Tu perfil se guardó localmente en el teléfono. Podrás enrolar tu rostro cuando tengas conexión.");
+            }
+            ui.lblTrabajador.innerText = nombre;
+        }
+
+        // ================= LISTA OFICIAL DE PERSONAL (personal.txt) =================
+        async function cargarListaOficialPersonal() {
+            try {
+                const res = await fetch("/api/personal_oficial");
+                const data = await res.json();
+                if (data.status === "ok" && data.personal) {
+                    ui.listaNombres.innerHTML = "";
+                    data.personal.forEach(nom => {
+                        const opt = document.createElement("option");
+                        opt.value = nom;
+                        ui.listaNombres.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.warn("No se pudo cargar la lista oficial de personal:", e);
+            }
+        }
+
+        // ================= CARGAR PROYECTOS =================
+        async function cargarProyectos() {
+            try {
+                const res = await fetch("/api/proyectos");
+                const data = await res.json();
+                if (data.status === "ok" && data.proyectos) {
+                    localStorage.setItem("rpcs_cache_proyectos", JSON.stringify(data.proyectos));
+                    poblarSelectProyectos(data.proyectos);
+                }
+            } catch (e) {
+                // Si está offline, usar caché
+                const cached = localStorage.getItem("rpcs_cache_proyectos");
+                if (cached) poblarSelectProyectos(JSON.parse(cached));
+            }
+        }
+
+        function poblarSelectProyectos(proyectos) {
+            ui.selProyecto.innerHTML = '<option value="">-- Seleccionar Obra / Proyecto --</option>';
+            proyectos.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.nombre;
+                opt.innerText = p.nombre;
+                ui.selProyecto.appendChild(opt);
+            });
+            const last = localStorage.getItem("rpcs_ultimo_proyecto");
+            if (last) ui.selProyecto.value = last;
+        }
+
+        ui.selProyecto.addEventListener('change', () => {
+            if (ui.selProyecto.value) {
+                localStorage.setItem("rpcs_ultimo_proyecto", ui.selProyecto.value);
+            }
+        });
+
+        // ================= EFECTOS DE SONIDO SINTETIZADOS =================
+        function reproducirSonidoExito() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+            } catch(e) {}
+        }
+
+        function reproducirSonidoBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = "square";
+                osc.frequency.setValueAtTime(1046.50, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch(e) {}
+        }
+
+        // ================= INICIALIZACIÓN GENERAL =================
+        async function arrancar() {
+            cargarPerfilActual();
+            iniciarIndexedDB();
+            iniciarGPS();
+            cargarListaOficialPersonal();
+            cargarProyectos();
+            await encenderCamara("user");
+
+            // Registrar Service Worker para PWA Offline
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/static/sw.js').then(reg => {
+                    console.log('ServiceWorker registrado:', reg.scope);
+                }).catch(err => console.log('SW Error:', err));
+            }
+        }
+
+        window.onload = arrancar;
+    </script>
+</body>
+</html>

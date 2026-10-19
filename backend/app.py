@@ -1,0 +1,460 @@
+import os
+import io
+import json
+import base64
+import uuid
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, StreamingResponse
+import cv2
+import qrcode
+from PIL import Image
+
+from .database import (
+    init_db,
+    guardar_o_actualizar_empleado,
+    obtener_empleado,
+    listar_empleados,
+    eliminar_empleado,
+    listar_proyectos,
+    obtener_proyecto_por_nombre,
+    obtener_proyecto_por_qr,
+    guardar_proyecto,
+    eliminar_proyecto,
+    registrar_marcaje,
+    listar_marcajes,
+    eliminar_marcaje,
+    obtener_metricas_dashboard
+)
+from .geofence import validar_posicion_en_obra
+from .biometrics import decodificar_imagen, extraer_vector_rostro, verificar_1_a_1, detectar_borrosidad
+
+# Rutas de almacenamiento
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+CAPTURAS_DIR = os.path.join(DATA_DIR, "capturas")
+PERFILES_DIR = os.path.join(DATA_DIR, "perfiles")
+PERSONAL_TXT_PATH = os.path.join(BASE_DIR, "personal.txt")
+
+os.makedirs(CAPTURAS_DIR, exist_ok=True)
+os.makedirs(PERFILES_DIR, exist_ok=True)
+
+# Iniciar Base de Datos
+init_db()
+
+app = FastAPI(title="Smart Hub - Control de Asistencia Ryan Pacific", version="2.1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Servir archivos estáticos
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/")
+def raiz_pwa():
+    """Servir la Progressive Web App para los obreros en sus celulares."""
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/admin")
+def panel_administracion():
+    """Servir el panel de control administrativo y auditoría de nómina."""
+    return FileResponse(os.path.join(STATIC_DIR, "admin.html"))
+
+
+# ---------------- API LISTA OFICIAL DE PERSONAL ----------------
+
+@app.get("/api/personal_oficial")
+def api_personal_oficial():
+    """Retorna la lista oficial de nombres de personal.txt para autocompletar."""
+    nombres = []
+    if os.path.exists(PERSONAL_TXT_PATH):
+        try:
+            with open(PERSONAL_TXT_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        nombres.append(line)
+        except Exception as e:
+            print("Error leyendo personal.txt con utf-8, intentando latin-1:", e)
+            try:
+                with open(PERSONAL_TXT_PATH, "r", encoding="latin-1") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            nombres.append(line)
+            except Exception:
+                pass
+
+    # Quitar duplicados conservando orden
+    vistos = set()
+    nombres_unicos = []
+    for n in nombres:
+        norm = n.strip()
+        if norm.lower() not in vistos:
+            vistos.add(norm.lower())
+            nombres_unicos.append(norm)
+
+    return {"status": "ok", "total": len(nombres_unicos), "personal": nombres_unicos}
+
+
+# ---------------- API DE PROYECTOS Y GEOFENCING ----------------
+
+@app.get("/api/proyectos")
+def api_listar_proyectos():
+    return {"status": "ok", "proyectos": listar_proyectos()}
+
+
+@app.post("/api/proyectos")
+def api_guardar_proyecto(
+    nombre: str = Form(...),
+    lat: float = Form(...),
+    lon: float = Form(...),
+    radio_metros: int = Form(150),
+    qr_token: Optional[str] = Form(None)
+):
+    if not qr_token:
+        codigo_limpio = "".join([c for c in nombre.upper() if c.isalnum()])[:8]
+        qr_token = f"RPCS-{codigo_limpio}-{uuid.uuid4().hex[:6].upper()}"
+
+    guardar_proyecto(nombre, lat, lon, radio_metros, qr_token)
+    return {"status": "ok", "mensaje": "Proyecto guardado", "qr_token": qr_token}
+
+
+@app.delete("/api/proyectos/{proyecto_id}")
+def api_eliminar_proyecto(proyecto_id: int):
+    eliminar_proyecto(proyecto_id)
+    return {"status": "ok", "mensaje": "Proyecto eliminado"}
+
+
+@app.get("/api/qr_proyecto/{proyecto_id}")
+def api_generar_qr_imprimible(proyecto_id: int):
+    """Genera un cartel oficial en imagen PNG con el QR para pegar en la entrada de la obra."""
+    proyectos = listar_proyectos()
+    proy = next((p for p in proyectos if p["id"] == proyecto_id), None)
+    if not proy:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+    qr_data = proy["qr_token"]
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=12,
+        border=4,
+    )
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    img_qr = qr.make_image(fill_color="#0f172a", back_color="white").convert("RGB")
+
+    logo_path = os.path.join(STATIC_DIR, "icon.png")
+    if os.path.exists(logo_path):
+        try:
+            logo = Image.open(logo_path)
+            logo_size = (img_qr.size[0] // 4, img_qr.size[1] // 4)
+            logo = logo.resize(logo_size, Image.Resampling.LANCZOS)
+            pos = ((img_qr.size[0] - logo_size[0]) // 2, (img_qr.size[1] - logo_size[1]) // 2)
+            img_qr.paste(logo, pos)
+        except Exception as e:
+            print("No se pudo incrustar logo en QR:", e)
+
+    buffer = io.BytesIO()
+    img_qr.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
+# ---------------- API DE EMPLEADOS Y BIOMETRÍA ----------------
+
+@app.get("/api/empleados")
+def api_listar_empleados():
+    return {"status": "ok", "empleados": listar_empleados()}
+
+
+@app.delete("/api/empleados/{empleado_id}")
+def api_eliminar_empleado(empleado_id: int):
+    eliminar_empleado(empleado_id)
+    return {"status": "ok", "mensaje": "Trabajador eliminado de la base de datos"}
+
+
+@app.post("/api/enrolar")
+async def api_enrolar_empleado(
+    nombre: str = Form(...),
+    telefono: str = Form(""),
+    puesto: str = Form("Obrero / Campo"),
+    files: List[UploadFile] = File(...)
+):
+    """
+    Enrolamiento Multi-Foto (1 a 3 fotos):
+    Guarda la foto oficial en data/perfiles/ y extrae los vectores matemáticos de 512D.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="Debe enviar al menos una foto.")
+
+    vectores = []
+    errores = []
+    ruta_foto_oficial = None
+
+    for idx, f in enumerate(files):
+        bytes_data = await f.read()
+        img = decodificar_imagen(bytes_data)
+        if img is None:
+            errores.append(f"Foto {idx+1}: Formato no válido")
+            continue
+
+        emb, err, bbox = extraer_vector_rostro(img)
+        if err:
+            errores.append(f"Foto {idx+1}: {err}")
+        else:
+            vectores.append(emb.tolist())
+
+            # Guardar la primera foto válida como foto oficial de perfil
+            if not ruta_foto_oficial:
+                fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                nombre_archivo = f"perfil_{fecha_str}_{uuid.uuid4().hex[:6]}.jpg"
+                ruta_disco = os.path.join(PERFILES_DIR, nombre_archivo)
+                cv2.imwrite(ruta_disco, img)
+                ruta_foto_oficial = f"/data/perfiles/{nombre_archivo}"
+
+    if not vectores:
+        return {
+            "status": "error",
+            "error": "No se detectó un rostro claro en ninguna foto: " + "; ".join(errores)
+        }
+
+    guardar_o_actualizar_empleado(nombre, telefono, puesto, vectores, foto_perfil=ruta_foto_oficial)
+    return {
+        "status": "ok",
+        "mensaje": f"Trabajador '{nombre}' enrolado exitosamente ({len(vectores)} perfiles biométricos guardados).",
+        "total_vectores": len(vectores),
+        "foto_perfil": ruta_foto_oficial,
+        "advertencias": errores if errores else None
+    }
+
+
+# ---------------- API DE ASISTENCIA Y MARCAJE ----------------
+
+def procesar_un_marcaje(payload: dict) -> dict:
+    """Función central que evalúa biometría 1:1, geocerca/QR y auditoría."""
+    nombre = payload.get("empleado_nombre", "").strip()
+    tipo = payload.get("tipo", "ENTRADA").upper()
+    proy_nombre = payload.get("proyecto_nombre", "")
+    timestamp_local = payload.get("timestamp_local") or datetime.now().isoformat()
+    lat = payload.get("lat")
+    lon = payload.get("lon")
+    accuracy = payload.get("gps_accuracy")
+    qr_token = payload.get("qr_token")
+    foto_b64 = payload.get("foto")
+    offline = 1 if payload.get("offline_sincronizado") else 0
+
+    empleado = obtener_empleado(nombre)
+
+    # 1. Guardar foto de marcaje en disco
+    nombre_archivo_foto = None
+    similitud = 0.0
+    error_facial = None
+
+    if foto_b64 and len(foto_b64) > 100:
+        try:
+            img = decodificar_imagen(foto_b64)
+            if img is not None and img.shape[0] > 10 and img.shape[1] > 10:
+                fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                nombre_archivo = f"punch_{fecha_str}_{uuid.uuid4().hex[:6]}.jpg"
+                ruta_completa = os.path.join(CAPTURAS_DIR, nombre_archivo)
+                
+                # Guardar foto físicamente
+                guardado = cv2.imwrite(ruta_completa, img)
+                if guardado:
+                    nombre_archivo_foto = f"/data/capturas/{nombre_archivo}"
+
+                # Extraer vector biométrico y comparar 1:1
+                if empleado and empleado.get("vectores"):
+                    emb, err, bbox = extraer_vector_rostro(img)
+                    if err:
+                        error_facial = err
+                    else:
+                        similitud = verificar_1_a_1(emb, empleado["vectores"])
+                else:
+                    error_facial = "Empleado no enrolado previamente"
+        except Exception as e:
+            error_facial = f"Error decodificando foto: {str(e)}"
+    else:
+        error_facial = "No se recibió imagen de la cámara"
+
+    # 2. Validación de Ubicación (Geocerca o QR de Entrada de Obra)
+    metodo_ubicacion = "DESCONOCIDO"
+    distancia_m = None
+    es_valido_gps = False
+    motivo_ubicacion = ""
+
+    # Caso A: QR de Obra Físico (Bajo Losa / Sótano)
+    if qr_token:
+        proy_qr = obtener_proyecto_por_qr(qr_token)
+        if proy_qr and proy_qr["nombre"] == proy_nombre:
+            metodo_ubicacion = "QR_OBRA"
+            es_valido_gps = True
+            distancia_m = 0.0
+            motivo_ubicacion = "Verificado por QR físico en acceso de obra (Bajo losa)"
+        else:
+            motivo_ubicacion = "QR de obra inválido"
+
+    # Caso B: Coordenadas Satelitales GPS
+    if not es_valido_gps and lat is not None and lon is not None:
+        proy = obtener_proyecto_por_nombre(proy_nombre)
+        if proy:
+            es_valido_gps, dist, motivo = validar_posicion_en_obra(
+                lat, lon, accuracy, proy["lat"], proy["lon"], proy["radio_metros"]
+            )
+            distancia_m = dist
+            motivo_ubicacion = motivo
+            metodo_ubicacion = "GPS"
+        else:
+            motivo_ubicacion = f"Proyecto '{proy_nombre}' no encontrado"
+
+    # 3. Reglas de Auditoría Inteligente (Semáforo Antifraude)
+    UMBRAL_OPTIMO = 0.50
+    UMBRAL_DUDOSO = 0.40
+
+    if not empleado:
+        estado_auditoria = "REVISION"
+        motivo_ubicacion = f"Trabajador sin enrolar | {motivo_ubicacion}"
+    elif similitud >= UMBRAL_OPTIMO and es_valido_gps:
+        estado_auditoria = "APROBADO"
+    elif similitud < UMBRAL_DUDOSO and nombre_archivo_foto:
+        estado_auditoria = "SOSPECHA_FRAUDE"
+        motivo_ubicacion = f"Posible suplantación ({round(similitud*100, 1)}% coincidencia) | {motivo_ubicacion}"
+    elif not es_valido_gps:
+        if distancia_m and distancia_m > 1000:
+            estado_auditoria = "SOSPECHA_FRAUDE"
+            motivo_ubicacion = f"Marcaje a más de 1 km de la obra ({round(distancia_m/1000, 1)} km)"
+        else:
+            estado_auditoria = "REVISION_GPS"
+    elif UMBRAL_DUDOSO <= similitud < UMBRAL_OPTIMO:
+        estado_auditoria = "REVISION_FACIAL"
+        motivo_ubicacion = f"Rostro parcialmente cubierto o baja luz ({round(similitud*100, 1)}%)"
+    else:
+        estado_auditoria = "REVISION"
+
+    # Registrar en Base de Datos SQLite
+    marcaje_id = registrar_marcaje({
+        "empleado_nombre": nombre,
+        "tipo": tipo,
+        "timestamp_local": timestamp_local,
+        "timestamp_servidor": datetime.now().isoformat(),
+        "proyecto_nombre": proy_nombre,
+        "lat": lat,
+        "lon": lon,
+        "distancia_metros": distancia_m,
+        "gps_accuracy": accuracy,
+        "metodo_ubicacion": metodo_ubicacion,
+        "similitud_facial": round(similitud * 100, 2),
+        "estado_auditoria": estado_auditoria,
+        "foto_path": nombre_archivo_foto,
+        "offline_sincronizado": offline,
+        "notas": motivo_ubicacion
+    })
+
+    return {
+        "status": "ok",
+        "marcaje_id": marcaje_id,
+        "empleado": nombre,
+        "tipo": tipo,
+        "hora_marcada": timestamp_local,
+        "similitud_facial": round(similitud * 100, 2),
+        "distancia_metros": distancia_m,
+        "foto_path": nombre_archivo_foto,
+        "metodo_ubicacion": metodo_ubicacion,
+        "estado_auditoria": estado_auditoria,
+        "mensaje": "Marcaje guardado correctamente."
+    }
+
+
+@app.post("/api/marcar")
+async def api_marcar_asistencia(
+    empleado_nombre: str = Form(...),
+    tipo: str = Form(...),
+    proyecto_nombre: str = Form(...),
+    timestamp_local: str = Form(...),
+    lat: Optional[float] = Form(None),
+    lon: Optional[float] = Form(None),
+    gps_accuracy: Optional[float] = Form(None),
+    qr_token: Optional[str] = Form(None),
+    foto: Optional[str] = Form(None)
+):
+    payload = {
+        "empleado_nombre": empleado_nombre,
+        "tipo": tipo,
+        "proyecto_nombre": proyecto_nombre,
+        "timestamp_local": timestamp_local,
+        "lat": lat,
+        "lon": lon,
+        "gps_accuracy": gps_accuracy,
+        "qr_token": qr_token,
+        "foto": foto,
+        "offline_sincronizado": False
+    }
+    return procesar_un_marcaje(payload)
+
+
+@app.post("/api/sincronizar_lote")
+async def api_sincronizar_lote(lote: List[dict]):
+    resultados = []
+    for item in lote:
+        item["offline_sincronizado"] = True
+        try:
+            res = procesar_un_marcaje(item)
+            resultados.append(res)
+        except Exception as e:
+            resultados.append({"status": "error", "error": str(e), "item_ref": item.get("id_local")})
+
+    return {"status": "ok", "total_procesados": len(resultados), "resultados": resultados}
+
+
+@app.delete("/api/marcajes/{marcaje_id}")
+def api_eliminar_marcaje(marcaje_id: int):
+    """Permite al equipo administrativo borrar registros erróneos o de prueba."""
+    eliminar_marcaje(marcaje_id)
+    return {"status": "ok", "mensaje": "Marcaje eliminado correctamente"}
+
+
+# ---------------- API DEL PANEL ADMINISTRATIVO ----------------
+
+@app.get("/api/dashboard_metricas")
+def api_metricas():
+    return obtener_metricas_dashboard()
+
+
+@app.get("/api/reportes")
+def api_reportes(
+    limit: int = 150,
+    estado: Optional[str] = "TODOS",
+    fecha: Optional[str] = None
+):
+    marcajes = listar_marcajes(limit=limit, filtro_estado=estado, filtro_fecha=fecha)
+    return {"status": "ok", "total": len(marcajes), "marcajes": marcajes}
+
+
+# Servir fotos de capturas y de perfiles oficiales
+@app.get("/data/capturas/{nombre_archivo}")
+def servir_captura(nombre_archivo: str):
+    ruta = os.path.join(CAPTURAS_DIR, nombre_archivo)
+    if os.path.exists(ruta):
+        return FileResponse(ruta)
+    raise HTTPException(status_code=404, detail="Foto de marcaje no encontrada")
+
+
+@app.get("/data/perfiles/{nombre_archivo}")
+def servir_perfil(nombre_archivo: str):
+    ruta = os.path.join(PERFILES_DIR, nombre_archivo)
+    if os.path.exists(ruta):
+        return FileResponse(ruta)
+    raise HTTPException(status_code=404, detail="Foto de perfil no encontrada")
