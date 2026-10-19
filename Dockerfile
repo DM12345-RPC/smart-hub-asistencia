@@ -8,12 +8,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Configurar usuario estándar no-root (requerido por Hugging Face Spaces)
+# Configurar usuario estándar no-root
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    ORT_DISABLE_MEMORY_ARENA=1 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
 
 WORKDIR $HOME/app
 
@@ -21,11 +25,11 @@ WORKDIR $HOME/app
 COPY --chown=user:user requirements.txt $HOME/app/
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Pre-descargar modelo biométrico ultra-ligero buffalo_s (optimizado para <512MB RAM)
-ENV OMP_NUM_THREADS=1 \
-    OPENBLAS_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1
-RUN python -c "from insightface.app import FaceAnalysis; app = FaceAnalysis(name='buffalo_s', allowed_modules=['detection', 'recognition']); app.prepare(ctx_id=-1, det_size=(320, 320))"
+# Pre-descargar modelo buffalo_s y purgar modelos 3D y de edad pesados para garantizar <120MB de RAM
+RUN python -c "from insightface.app import FaceAnalysis; app = FaceAnalysis(name='buffalo_s'); app.prepare(ctx_id=-1, det_size=(320, 320))" && \
+    rm -f /home/user/.insightface/models/buffalo_s/1k3d68.onnx \
+          /home/user/.insightface/models/buffalo_s/2d106det.onnx \
+          /home/user/.insightface/models/buffalo_s/genderage.onnx
 
 # Copiar archivos del proyecto
 COPY --chown=user:user . $HOME/app
