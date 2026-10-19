@@ -1,0 +1,878 @@
+# Base de datos de personal para BuilderTrend
+# Agrega o modifica un nombre por línea.
+Aaron (Gustavo) Felix Ibarra
+Aaron Missael Ibarra Salazar
+Abner Serrano
+Abraham M Medina Chavez
+ABRAHAM PART CHICAS DIAZ GROUP
+Adan  Nicasio Morales 
+Adan Alexander Quintanilla Cerros 
+Adan De La Cruz 
+Adan De la Cruz - Inactive
+ADAN MENDOZA
+Adan Mendoza  Oropeza
+Adan Ramirez
+Adan Tecpile Tzompaxtle
+Adolfo   Guarcax Cumez
+Adolfo  Leyva
+Adolfo Rangel Nabor
+Adolfo Waldemar  Guarcax Cumez
+Adrian  Navarro Hernandez 
+Adrian  Romo Garcia
+Adrian Figueroa Gonzalez
+Adrian Meza
+Agustin  Valladares
+Agustin Valladares Basilio
+Alba Verónica  Sánchez Mendez
+ALBERTO BAEZ
+Alberto Perez
+Alejandra Garcia Nicacio
+Alejandro  Casillas
+Alejandro  Miguel Marquez
+Alejandro Barbosa
+Alejandro Cruz Sosa
+Alejandro Garcia Cruz
+Alejandro Moo
+Alejandro Ramirez Maldonado
+Alejandro Rodriguez Dominguez
+Alexander  Pelayo
+Alexander Antonio Hernandez
+Alexis  Carranza Garcia
+Alexis  Hernandez
+Alexis Jair Pedroza Diaz Leal
+Alexis Mendez
+Alexis Rogelio Olivas Sosa
+Alfonso Rojas Gaona
+Alfredo Gomez Perez
+Alfredo Ventura Vargas
+Alonso  Castrejon
+Alonso Pina Nicasio
+Alonso Solis Castanon
+Alvaro  Hernandez Garcia
+Ana Lucelvy Bernal Hernandez
+Ana Ramirez
+Andrea  Zambrano
+Andres  Rosales
+Andres (Colombian) Montenegro
+Andres Fernando Lopez Marcos
+Andres Luviano Miranda
+Andres MIguel Hernandez
+Andres Robles
+Angel  Blanco
+Angel A Vanegas Esquivel
+Angel Celestino Garcia
+Angel Eduardo  Lara Gonzalez 
+Angelo Garcia
+Anselmo  Cruz
+Anthony Josue  Zaldivar Gutierrez
+Antoni Rivero
+Antoni S Rivera Mata
+Antonio  Trejo Hernandez
+Antonio (Pineda Team) Chel Colli
+Antonio de Jesús  Oleta Macareno
+Antonio Pimentel Medardo
+Apolonio Cortez
+Ariel Hernández Mejía
+Arlen Jose  Gonzalez Vasquez
+Armando  Coronado Garcia
+Armando Cruz Alvarez
+Arturo  Silva
+Arturo Rubio
+Astrid M. (Colombiana) Martinez
+Audiel  Martinez Lopez
+Ausencio Francisco Rodriguez
+Axel Edgardo  Martinez
+Bacilio Francisco Rodriguez 
+Baltazar Leyva Galeana
+Bani  Lopez Millan
+Bayron Alexander Rodriguez Benitez
+Benito  Marin Lopez
+Benito  Valdez
+BENJAMIN GROUP RAMOS VADLEZ
+Bernardo Fernandez
+Blas Fernando Gomez P
+Boris Hernan  Henriquez Valdes
+Brallan  Robles Herrera
+Brallan Robles Herrera
+Brandon  Sayavedra
+Brayan Alejandro Sabido Yam
+Brayan Alejandro Santin Chavez
+Brenda Gomez
+Brenda Sue-Olivia Guerra
+Broquero (Zambrano) Rosales Disnale
+Bryan (Zambrano) Martinez
+Bryan Eduardo Chavez
+Bryan Jose Romero Marin
+Camilo Avila
+Camilo Gomez
+Candelario Rojas Lopez
+Carla Vergara Gonzalez
+Carlos  Bernal Becerra
+Carlos  Perez Sagrero
+Carlos (Nickolas) Frías
+Carlos (Zambrano) Mendoza
+Carlos Adrian  Gutierrez R
+Carlos Alberto Martinez
+Carlos Alberto Martinez Ortiz
+Carlos Aldana
+Carlos Allende
+Carlos Araiza Rosales
+Carlos Daniel Robles Perez
+Carlos Eduardo Castaneda Zetino
+Carlos Enrique Alvarado 
+Carlos Enrique Miranda 
+Carlos Fernando Mutute Ulloa
+Carlos Gonzalez
+Carlos Perez Najar
+Carlos Rogelio Delgado Espinosa
+CARMEL OROPEZA
+Carolina Bermudez
+Celestino Gonzalez  Rafael
+Cesar  Herrera Mendoza
+Cesar Andres Osuna Delfin
+Cesar Antonio Sandoval Villa
+Cesar Chaviri
+Cesar E Nuñez Tadeo
+Cesar Felipe Medina Fausto
+Cesar Humberto Sandoval Ramos
+Christian   Obregon
+Christian Hernandez
+Christian Isaias  Espinosa
+Christian R Hernández Garcia 
+Christina Denise  Dandridge
+Chung Van Nguyen
+Cipriano Romo Garcia
+Cirilo (Librado)
+Claudia Leticia  Velazquez
+Claudia Patricia Bejarano Urrego
+Cristian  Magallanes
+Cristian Marin
+Cristian Misael Velasquez Ramos
+Dagoberto Chavarin Viedas
+Damian Alejandro Gomez
+Dan RYRY
+Daniel  Elizalde Gonzalez
+Daniel  Gonzalez Almirado
+Daniel  Guevara
+Daniel (Zambrao) Nacera
+Daniel Armando  Guerra Velasquez
+Daniel B. Garcia Lopez
+Daniel Galvez
+Daniel Gamboa
+Daniel Lara Orozco
+Daniel Lopez Garcia
+DANIEL RAMOS 
+Daniel Romero
+Daniel Ryan
+Danny Francisco Sanchez Cruz
+Dario Santiago Negrete
+Darwin  Zaragoza Martinez
+David  (Tirso)
+David  Wilhelm
+David Eli  Pech Lopez
+David Garza
+David Jose May Cauich
+David Lizana
+David Michael Jones
+Delfino  Perez Toxtle
+Denis  Treminio
+Dennis Ryan
+Diana  de Avila
+Diego  De La Cruz 
+Diego Anthony Sanchez
+Diego Marín
+Diego Rendon
+Dolores Uriel Morales Estrada
+Domingo Barranca Acatitlan
+Donald Antonio Barahona Quinonez
+Eddy Rene Sanchez Cruz
+Edgar  Ramirez Romero
+Edgar (Zambrano) Hernandez
+Edgar Noel Robles Herrera
+Edgar Raul (Colombian) Acosta Perez
+Edilberto  Lopez Fabian
+Eduardo  Correa
+Eduardo  Gonzalez Guzman
+Eduardo  Martinez
+Eduardo  Sanchez Rivera
+Eduardo Flores Sanchez
+Eduardo Fraydes
+Eduardo Jesus  Romero
+Eduardo Rafael  Gutiérrez Escobar
+Eduin Martinez Florez
+Edwar  Ramiro Lopez Gonzal
+Edward Javier Ramos Garibello
+Edwardo (Zambrano) Avena
+Edy O Contreras Sustaita
+Efrain  Navarro Hernandez
+Efrain  Tolentino Martinez
+Efrain Rodriguez Romero
+Eibar Canul
+Elias Cugtenco Gonzalez
+Emanuel (Raymundo) Sanchez
+Emelia  Mesino Garcia
+Emilio Eli Yanes Rodriguez
+Emilio Gomez
+Emilio Vazquez Zamora
+Emmanuel  Herrera
+Emmanuel  Olguin Campos
+Emmanuel Gomez Acosta 
+Enrique  Borbon Lopez
+Enrique Blanco
+Enrique Perez
+Eric Roberto F
+Erick Montiel Jaramillo
+Erick Quintal
+Erik Anaya Salazar
+Erik Daniel Temixqueño Malda
+Erin Paola Flores Gabriel
+Ernesto Adan  Sandoval Ramos
+Ernesto Gomez Gomez
+Ervin  Guarcax Cumes
+Esgart Jesús Carranza
+Estanislao Bautista Montaño
+Estanlin de Jesus Rodriguez Galeano
+Esteban Sevilla
+Estevan  Nazario
+Estrella Nataly Marmolejo Muñoz
+Eusebio Lopez Ku
+Evan  Scott
+EVARISTO  BAEZ
+Evelio  Gomez Mendoza
+Evelio Martinez
+Ever E  Yanes Rodriguez
+Everardo  Lopez Contreras
+Ezequiel Gonzalez Contreras
+Fabian Negrete Cano
+Fatima D  Rodas de Quintanilla
+Faustino  Peraza
+FAUSTO FLORES
+Federico  Ibarias Villalobos
+Felipe  Castrejon
+Felipe  Zavala Castro
+Felipe 0. Mora Loera
+Felipe Benitez Melara
+Felipe de Jesus Elias Servin
+Felipe Lucigniani
+Felix Mendoza
+Fernando  Maciel Garcia
+FERNANDO  MORALES
+Fernando  Velázquez Gomez
+Fernando  Vigo 
+Fernando Ardila
+Fernando Michel-Rangel
+Fidel  Castro
+Fidel  Castro Valdovinos
+Fidel Antonio Escobedo Moya
+Florentino  Lorenzo Marquez
+Francisco  Ortiz Temisqueno
+Francisco  Valencia
+Francisco (Carlos) Aguilera Duran
+Francisco (Zambrano) Martinez
+Francisco Javier Flores Camacho
+Francisco Javier Villegas Castañeda
+Francisco Lopez
+Francisco Parada Munoz
+Francisco Rivera Palomino
+Francisco Rueda Chavira
+Francisco Zavala Castro
+Fray Nazario Cano
+Freddy Brayam Marabel Barrios
+Fredy Espinal
+Fredy Urtado Lopez
+Freman Acuna
+Froylan Alvarado
+Gabriel  Loaeza Ponce
+Gabriel  Lopez Rojas
+Gabriel Pina Nicasio
+Galdino  Hernandez Cervantes
+Galdino Hernandez
+Genaro Galindo Ticorralco
+GERARDO  CHAVEZ
+Gerardo  Martinez Lemus
+Gerardo  Peraza
+Gerardo Pérez Martínez
+Gerardo Vega Velez
+Geremias Ramirez
+Gerson  Chavez Chavez
+Giancarlo Gaytan Bobadilla
+Gilberto Leyva Galeana
+Gloria  (Librado)
+Gonzalo  Rios Banuelos
+Gonzalo Fabian Lopez
+Gonzalo Rivera Murillo
+Guadalupe Salbador  Osuna Cardenas 
+Gualberto Chuc Argaez
+Guillermo Antonio Cabanillas Arce 
+Guillermo Grijalva Munoz
+Guillermo Lozada Bautista
+GUSTAVO ARCE GARCIA
+Gustavo Serabia Ramirez
+Hazel Munoz Montero
+Heber Nahum Torres Olaguez
+Hector  Carranza
+Hector  Gamboa
+HECTOR CANTRILLO
+Hector Carranza
+Hector de la Cruz de la Luz
+Hector Gordillo
+Hector Hernandez Contreras
+Hector Maldonado
+Hector Manuel Lopez Rios
+Hector Martinez Lemus
+Hector Martinez Lemus
+Hector Silva
+Herber A Villalobos Rodriguez
+Hernesto (Tirso) Garrido Crisanto
+Hilario Velasquez Derramona
+Hilda Elisa  Castrejón Reyes
+Honorio Miguel de la Cruz 
+Hugo  Negrete Cano
+Hugo E Landero Ramon
+Hugo Rivera Torres
+Humbertina  Abarca
+Ignacio  Velazquez Sanchez
+ILDEFONSO PELAYO
+ISAAC MORALES ESTRADA
+Isaac Roman Morales
+Isaias  Ramos
+Isaias Carranza Esmerio
+Isaias Mendez Pineda
+Isidoro  Ayala Perez
+Isidro  Flores Guerrero 
+Isidro Perez Medina
+Isidro Sustaita Sustaita
+Ismael  de Luna Serrano
+Ismael  Lopez Garcia
+Ismael Castillo Luna
+Israel  Ojeda Vargas
+Israel Mata
+Israel Olguin Lopez 
+Ivan Nuñez Nuñez
+J Santos Sustaita Dávila
+J. Santos Lauriano de la Cruz
+Jacob  Pérez
+Jacob Hernandez
+Jacson Melo
+Jahir Diaz Leal
+Jaime  Rayon Guatemala
+Jaime Andres  García Arias
+Jaime Gutierrez
+Jaime Nazario Cano
+Jairo Efren  Ojeda Lerma
+Jairo Jose  de Jesus Suarez
+Jarol Andres Perez Garcia
+Javier (Zambrano) Perez
+Javier Ramos
+Jelzun Zuriel Maldonado Garibaldi
+Jenniffer Beatriz Herrera Zaldivar
+Jeronimo Daniel  Sanchez Bautista
+Jess Lam
+Jesse Lane
+Jessica Esmeralda Aguilar de la O
+Jesús   Ortiz Martínez
+Jesus  Barcenas 
+Jesus  Bartolo Aldeco
+Jesus  Chavarria
+Jesus  Valdepena Castañeda
+Jesus (del la Cruz) Varcenas
+Jesus Adair Trujillo Ciriaco
+Jesus Alberto  Andrade Villa
+Jesus Alberto Montes Ramon
+Jesus Alejandro Santos Serna
+Jesus Alonso Cardenas Crespo
+Jesus Altamirano Peraza
+Jesus Araya
+Jesus C Mora Loera
+Jesus Castañon Cabrera
+Jesus Eduardo Lauriano Ruiz
+Jesus Ernesto Garcia Delfin
+Jesus Guzman Salvador
+Jesus Juarez Salgado
+Jesus Manzanarez Rodriguez
+Jesus Maria Zabala Castro
+Jesus Misael Rodrguez Sanchez
+Jesus Soria  Rengifo
+Jesus Villegas
+Jhonatan  Campos Rubio
+Joaquín (Tirso)
+Joaquin Ignacio Muñoz
+Joel Antonio Granillo
+JOEL LEYVA GUTIERREZ
+Joel Zavala Castro
+Joenaldo Moises  Jimenez Muñoz
+Johan  Luna Luna
+JOHN  ALBORES
+Johnathan (Zambrano) Espinoza
+Jonatan Castro Hernandez
+Jonathan  Mojica Lara
+Jones  Homs 
+Jones  Jesse James
+Jonny  Lagos Castro
+Jorge   Lechuga Cardoso
+Jorge  Gonzalez
+Jorge  Martinez
+Jorge  Rojas
+Jorge (del la Cruz) Brillones
+Jorge (Zambrano) Arredondo
+Jorge (Zambrano) Arredondo
+Jorge Alberto  Zambrano Valverde
+Jorge Alberto Inda Coronado
+Jorge Alcantar
+Jorge Enrique  Salas Zamora
+Jorge Enrique Rincon Fausto
+Jorge Gutierrez
+Jorge Hernandez Contreras
+Jorge Humberto (adolfo) Simental Juarez
+Jorge Isaias Alvarez
+Jorge Ledezma
+Jorge Leonardo Oliveros Cuentas
+Jorge Lopez
+Jorge Luis Chavez Vazquez
+Jorge Morales
+Jorge Sarabia
+Jorge Vasquez
+Jose  Aguilar Andrade
+Jose  Aguirre Rufino
+Jose  Coronado
+Jose  Gomez Castro
+Jose  Gutiérrez Escobar
+Jose  Lopez
+Jose  Maldonado
+Jose  Robles
+Jose  Rueda Juarez
+Jose  Velasquez 
+Jose (Zambrano) Gomez
+Jose A  Gonzalez 
+Jose Adan  de la Cruz Brionez 
+Jose Aguirre Rufino
+Jose Alberto Lamas Castaneda
+Jose Alejandro Rodriguez Fausto
+Jose Alexander  Hernandez Henriquez
+Jose Alfredo Cabrera Aguilar
+Jose Alfredo Esquivel
+Jose Alfredo Lopez Fabian
+Jose Alfredo Suarez Escobar
+Jose Alfredo Zet
+Jose Alonso Garcia Alvarez
+Jose Andres  Cardenas Grijalva
+Jose Antonio  Fausto Lizarraga
+Jose Antonio  Garcia Cabrera
+Jose Antonio  Vasquez Perez
+Jose Antonio Cruz
+Jose Antonio Jimenez 
+Jose Antonio Penate Lopez
+Jose Antonio Ramirez Martinez
+Jose Aristides Lopez Cortez
+Jose Armando  Mora Garcia 
+Jose Armando Suarez Martinez
+Jose Cruz Cardenas Grijalva
+Jose Daniel Mendez Garrido
+Jose Daniel Ramirez Ventura
+Jose Daniel Zuniga Gonzalez
+Jose Delgadillo
+Jose E  Quintanilla Lemus
+Jose Eduardo Barrera Camacho
+Jose Efrain  Osuna Laureano
+Jose Felix Barranca Sanchez
+Jose G Michel Flores
+José Gilberto (Carlos) Gomez
+Jose Guadalupe  Adolfo Andres
+Jose Guadalupe  Rodriguez Mancinas
+Jose Guadalupe Martinez Escobar
+Jose Hernandez
+Jose Humberto Altamirano Estrada
+Jose Isaias  Galicia Cabrera
+Jose Juan Zavala Castro
+Jose Julian
+Jose L Aguilar Rodriguez
+JOSE LEMUS
+Jose Luis  Barrera Camacho
+Jose Luis  Benitez Romero
+Jose Luis  Camargo Pimental 
+Jose Luis Delgadillo Alvarez
+Jose Luis Hernandez
+Jose Luis Jaimes
+Jose Luis Lopez Martinez
+Jose Manuel  Cardenas Gomez
+Jose Manuel  Oleta Reyes
+Jose Maria  Ramirez Guzman
+Jose Maria Estrada Duran
+Jose Martin  Salas Zamora
+Jose Martinez
+Jose Martínez
+Jose Miguel Rojas Valadez
+Jose Moises Melara Ruiz
+JOSE MONZANO
+Jose Nazario Solis Perez
+Jose Nicolas  Amaya Henrique
+Jose Perez
+Jose Ramon Martinez Lopez
+Jose Roberto  Lopez K
+Jose Samuel Huerta Castillo
+Jose Sustaita Sustaita
+Jose Valdez
+Jose Vidal Peinado Urtuzuastigue
+Joseph Madora
+Josué  Ramirez
+Josue Yadiel Gonzalez Calero
+Juan  Aldana
+Juan  Bartolo Aldeco
+JUAN  CAAMAL CADENA
+Juan  Cabrera 
+Juan  Herrera Hernandez
+Juan  Luna Silva
+Juan  Rangel Gonzalez
+Juan  Rodriguez Lopez
+Juan Angel Osuna Rodriguez
+Juan Antonio  Romero Cardenas
+Juan Antonio Rangel Cortez
+Juan Bartolo (Librado)
+Juan Caamal  Cadena
+Juan Carlos  Coria Mendoza
+Juan Carlos  Frias Mercado
+Juan Carlos  Hernandez Hernandez
+Juan Carlos  Velazquez Cruz 
+Juan Carlos Correa Rivera
+Juan Carlos Luna Luna
+Juan Carlos Martinez Muniz
+Juan Diego Aguilar Orozco
+Juan Diego Bustamante Crespo
+Juan Eduardo (Gustavo) Navor
+Juan Felipe  Barbosa Rojas
+Juan Francisco  Rodriguez Palomo
+Juan Gongora
+Juan Ignacio  Nuñez Valdivia
+Juan Manuel  Herrera
+Juan Manuel  Villasenor Gutierrez
+Juan Manuel Lara Orozco
+Juan Pablo Lopez Valderrama
+Juan Pablo Reza Soto
+Juan Zamudio López
+Juana Griselda Fierro Avila
+Julian  Sanchez Soto
+Julian Paul Perez Manrique
+Juliana  Caceres
+Juliano  Allasio
+Julio  Loyo Torres
+Julio Alberto Cano Alva
+Julio Cesar  Vazquez Garcia
+Justino (Raymundo) Sanchez
+Karen Eden  Madora
+Karina  Amezcua
+Karla Chavarin Viedas
+Kelly Brown
+Kelvin Emmanuel Ascencio Orantes
+Kenneth John Carranza Morales
+Kevin Alexander  Padilla Gutierrez
+Kevin Alexander Marroquín Rodriguez
+Kevin Edgardo Chacon Carcamo
+Lasoro Morales Lopez
+LAURO MARTINEZ
+Lazaro  Torres Luna
+LAZARO GUERRERO
+Leonardo  Vargas Trujillo
+Leonardo Daniel Hernandez Savala
+Leonel  Rodriguez Mancinas
+Leopoldo Lopez
+Leticia  Gonzalez  Rafael
+Librado  (Librado)
+Lilian Roa
+Limberth Gonzalez
+Lindolfo Davila Lopez
+Lorena Vargas Arias
+Lorenzo Antonio Argaez Cen
+Lorenzo de la Cruz Diego
+Lucio (Tirso) Garrido Robles
+Lucio Gomez
+Luis  Diaz Leal
+Luis  Elias Servin 
+Luis  Salas
+Luis  Viscarra Murillo
+LUIS (PINEDA TEAM) Hernadez Martinez
+Luis (Zambrano) Arredondo
+Luis Alberto Castillo Cauich
+Luis Alberto Frias 
+Luis Alberto Gastelum Barraza
+Luis Alberto Reyes Hernandez
+Luis Alonso Cruz Flamenco
+Luis Angel  Nuñez Tadeo
+Luis Angel Alcantara Moreno
+Luis Angel Rosas Altamirano
+Luis D. Dellgadillo López
+Luis Daniel Esqueda
+Luis Eduardo Delgado Ramirez
+Luis Enrique Estrada Gomez
+LUIS ENRIQUE PINEDA
+Luis Fernando  Cajti Cet
+Luis Fernando  Diaz
+Luis Francisco Cruz
+Luis G Lopez V
+Luis Juan Tapia Carrillo
+Luis Leal Cervantes 
+Luis Manuel Barrios Azanon
+Luis Martin Banuelos Hernandez
+Luis Raul Gonzalez Contreras
+Luz del Carmen Diaz Balderas
+Lyliana Calderón
+Mahinor Javier Briceño Jacinto
+Maick Sierra Moreno
+MANSELMO NICOLAS
+Manuel  (Chilean) Navarro Valenzuela
+Manuel Alejandro Guzman Gil
+Manuel Guadalupe Rendon Santos 
+Manuel Padilla
+Manuel Zavala Castro
+Marcario  Rodriguez Aguilar
+Marcela (Colombiana) Rojas Lopez
+Marcelino  Maciel Garcia
+Marcelino Alvarez Galindo
+Marco Antonio Lopez Rojas
+Marco Antonio Perez Toxtle
+Marco Antonio Zavala Zavala
+Marcos  De la Cruz
+Marcos Carranza Garcia
+Marcos Jesus Juarez Medel
+Marcos Rodriguez Dominguez
+Maria Irma  Estrada Garcia
+Maria Isabel Vega Velez
+Maria Orellana
+Marin  Herrera Mendoza
+Marino Martinez Cruz
+Marino Rodriguez
+Mario  Guzman Ramirez 
+Mario (Nickolas) Munez
+Mario Eduardo Salazar Nabor
+Mario Quintero Espinoza
+Marta  de Luna
+Martha  Villalobos Rodriguez
+Martha Mortera
+Martin  Cruz Benegas
+Martin Adalberto Medina Laureano
+Martin Chavez Mena
+Martin Duarte
+Martin Gamaliel  Castanon Villasenor
+Martin Macias Chavez
+Marvin Alexander García Cruz
+Mary Muñoz B
+Mateo (Zambrano) Mata
+Mateo Severiano Ruiz Olvera
+Matias  Carranza Esmerio
+Matias  Flores Fuentes
+Mauricio Hurtado
+Mauricio Martinez Alvarez
+Maurilio Miguel Santiago
+Maurisio  Munguia Herrera
+Maynor Paredes
+Michael (Zambrano) Navarro
+MIGUEL  CASTILLO CONJURA
+Miguel (Zambrano)  Feliz
+Miguel A  Orosco
+Miguel A Garcia Villagomez
+Miguel Aguilar
+Miguel Angel Grijalva Muñoz
+Miguel Angel Molohua Zoyontle
+Miguel Angel Urrutia Trejo
+Miguel Angel Villegas Tun
+Miguel Arcangel  Chavez Mena
+MIGUEL ARELLANO
+Miguel Axel Fernandez Salcedo
+Miguel Castro Cadenas
+Miguel Conjura Ayudante Miguel Conjura Ayudante
+Miguel Contreras Martinez
+Miguel Coria Mendoza
+MIGUEL PEREZ
+Miguel Ramon
+Miguel Rivera
+Miguel Rosales Mayorquin
+Miguel Santos
+Milton  Vasquez Olivas
+MIsael Olguin
+MOISES ESTRADA
+Monico  Lora
+Nallely Yuliza  Bugueno 
+Natalio Morales Pozotempa
+Natalio Velasquez
+Natividad Ramirez Velázquez
+Nelson Chavez
+Neri Israel  Delgado Diaz Leal
+Nery Israel  Delgado
+Nestor  Hernandez Partida
+Nick Acero
+Nickolas (Nickolas) Torres
+Nicolas Sierra
+Noe  Coria
+Noe  Vazquez
+Noé Máximo Ortega
+Noemi  De la Cruz Reyez
+Norberto  Montalvo Rodriguez
+Norberto Montalvo Rodriguez
+Ociel Ivan Osuna Betancojurt
+Octavio  Morales Galvan
+Octavio Pina - Desactivado
+Octavio Pina Nicasio
+Omar  Rojo Flores
+Omar Federico  Gonzalez Bautista
+Oralia Cruz Martinez
+Orlando Castaneda Alonso
+Osber Ovidio Sanchez
+Oscar  Nuñez Tadeo
+Oscar (Zambrano) Hernandez
+Oscar Fuentes Aguilar
+Oscar Wilfredo  Sanchez Quinonez
+Osman Milan  Rodriguez
+Oswaldo  Ortiz Martínez
+Oswaldo  Torres
+Pablo  Herrera Hernandez
+Pablo Daniel Mendoza Calvillo
+Pablo Garcia 
+Paolo Samuel (Gustavo) Elias 
+Patricia  Bustos Veliz
+Paul Ernesto Lopez Rodriguez
+Paul Mariano Villasenor Hernandez
+Paul Perez
+Paul Ryan
+Paula del Pilar Franco
+Paulino  Montiel Ricano
+Paulo Cesar Hidalgo Rojas
+Pedro A  Portillo
+Pedro Cen
+Pedro Delgadillo Alvarez
+Pedro Gutiérrez Frayle
+Pedro Jose Urbina Maltez
+Pierson (Librado)
+Porfirio Henriquez
+Rafael  Colin Vilches
+Rafael  Guadarrama de la luz
+Rafael  Nazario Cano
+Rafael Borja
+Rafael Reyna Rosas
+Ramiro  Mercado Nuñez
+Ramiro  Miguel Alvarez  Inactive
+Ramiro  Rodriguez Guzman
+Ramiro Miguel Alvarez
+Ramiro Rueda
+Ramiro Rueda Navarro
+Ramon  Alvarez Gomez
+Ramon Bernal
+Ramon Campos
+Ramón Gustavo Becerra Ruelas
+Raul  Lucatero
+Raul (Herrera) Munguia Herrera
+Raul Daniel  Ortega Gonzalez
+Raul E Jimenez carranza
+Raul Efren
+Raul Humberto Silvestre Trevizo
+Raul Ramirez Guzman
+Raul Reyes Ramos
+RAYMUNDO  SANCHEZ
+Rebeka Martinez Cruz
+RENE MENDOZA
+RENE MENDOZA
+Rene Vasquez
+Rey Argaez
+Reyes Esqueda
+REYNALDO OROPEZA
+Ricardo  Villafana
+Ricardo Jesus Cen Lizama
+Ricardo Sierra 
+Rigoberto  Denia Luna
+Rigoberto Chavez Carranza
+Rigoberto Chavez Vazquez
+Rigoberto Mejia Banegas
+Roberto  Carranza
+Roberto Carranza
+Roberto Hernandez 
+Rocio Linares Cobix
+Rodrigo  Ahuejote Saldana
+Rodrigo Alejandro Contreras Contreras
+Rodrigo Isaac  Mexquitic Rebolloso
+Rogelio Barrera Velazquez
+Roger Isaias  Santos 
+Rolando E. Hernandez
+Roman R Campos Alvarado
+Ronal (Union workers) Ronal
+Ronal's Wife (Union work Ronal
+Rony Elias  Sanchez Cruz
+Rosa Delmy  Cerna Figueroa
+Rosa Maria De Luna Serrano
+Rosa Perez
+Rosalino Álvarez Chino
+Ruben (Zambrano) Utreras
+Ruben Suarez Gomez
+Ruben Suarez Gomez
+Salomon  Lopez Millan
+Salvador  Tinajero Valdez 
+Salvador  Velarde Martinez
+Salvador Mendez Pineda 
+Salvador Pina Nicasio
+Salvador Rios López
+Samir  Castillo Ruiz
+Sandra Solano
+Santiago Dimas Cruz
+Santiago Tamay
+Santos Colin Miranda
+Saul  Sanchez Cruz
+Saul Chavez 
+Saul De la Cruz Vasquez
+Sebastian Gomez Roman
+Sebastian Juries 
+Sergio  Velasquez Morales
+Sergio Omar Sayavedra Parra
+Sergio Villegas
+Sharlie  Martinez Navarrete 
+Silvestre Diaz Leal Soto
+Simon Eliazar  Ramirez Miramontes
+Sonia Fernandez Borda
+Steven Gerardo Hernandez Rosales
+Stiff Mendez
+Syder Alexis  Rodriguez Sanchez
+Timoteo Santos Ramos
+Tirso (Tirso) Cugtengo
+Tomas Ventura Vargas
+Tony  Beaumont
+Toribio Garcia Carrera
+Ulises Benitez Huerta
+Ulises Munguia Herrera
+Usiel  Picazo Romero
+Vairon E Perez Raymundo
+Valerio Sanchez Ortiz
+Venancio Francisco Rodriguez
+Verlan M Le Baron Martorell
+Vicente Varona Solis
+VICTOR  AGUILAR
+Victor  Baez
+Victor  Moreno Martinez
+Victor  Santos Dzul
+Victor Alfonso Chicas Diaz
+Victor Alfonso Chicas Diaz
+Victor Alfonso Gomez - Desactivado
+Victor Alfonso Gomez Morales
+VICTOR ARCE GARCIA
+Victor Diaz
+Victor Gonzalez Reyes
+Victor Pardo
+Victor Tellez
+Victor Varona Solis
+Vidal Reyes Hernandez
+Virginio N Rodriguez Granado
+Vlady Castro Rincon
+WALTER GARCIA
+Walter Jow Lopez Henriquez
+Wanderley Vilarinho
+Wilber Alexander Cortez Cortez
+Wilfredo Velasquez Cruz
+William A  Navarrete Montoya 
+William Antonio Navarrete Montoya
+William Villa Campo
+Wilver Adrian  Cardenas Vazquez
+Yareth  Rosales
+Yazmani Contreras Torres
+Yazmani Contreras Torres
+Yecid  Loaiza Rodriguez
+Yohan  Gonzalez 
+Yordis Acosta Galindo
+Yorkis Perez Galindo
+Yulissa Claribel Amaya Pineda
+Zoraida (Zary) (metal)  Carmen Hernandez
+

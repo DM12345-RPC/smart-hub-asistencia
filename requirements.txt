@@ -1,0 +1,9 @@
+fastapi>=0.110.0
+uvicorn>=0.28.0
+python-multipart>=0.0.9
+numpy>=1.24.0
+opencv-python-headless>=4.8.0
+insightface>=0.7.3
+onnxruntime>=1.16.0
+pillow>=10.0.0
+qrcode[pil]>=7.4.2
