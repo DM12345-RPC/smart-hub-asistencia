@@ -4,11 +4,15 @@ from insightface.app import FaceAnalysis
 import base64
 import os
 
-# Inicializar motor biométrico InsightFace (Buffalo_L)
-print("Inicializando InsightFace buffalo_l...")
-face_app = FaceAnalysis(name='buffalo_l')
-# ctx_id=-1 para CPU, 0 para GPU NVIDIA CUDA
-face_app.prepare(ctx_id=-1, det_size=(640, 640))
+# Inicializar motor biométrico ultra-ligero InsightFace (buffalo_s) optimizado para <512MB RAM
+print("Inicializando InsightFace buffalo_s (ultra-ligero, <150MB RAM)...")
+face_app = FaceAnalysis(
+    name='buffalo_s',
+    root=os.path.expanduser('~/.insightface'),
+    allowed_modules=['detection', 'recognition']
+)
+# ctx_id=-1 para CPU, det_size=(320, 320) reduce el buffer de memoria en 75%
+face_app.prepare(ctx_id=-1, det_size=(320, 320))
 print("Motor biométrico listo.")
 
 def decodificar_imagen(datos_bytes_o_base64):

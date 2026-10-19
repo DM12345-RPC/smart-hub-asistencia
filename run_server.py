@@ -1,6 +1,11 @@
-import uvicorn
 import os
 import sys
+import uvicorn
+
+# Limitar hilos de computación para mantener la memoria RAM bajo 200MB en servidores gratuitos
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 
 # Asegurar que el directorio raíz del proyecto esté en el path de Python
 current_dir = os.path.dirname(os.path.abspath(__file__))

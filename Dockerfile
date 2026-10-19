@@ -21,8 +21,11 @@ WORKDIR $HOME/app
 COPY --chown=user:user requirements.txt $HOME/app/
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Pre-descargar modelo biométrico buffalo_l durante la construcción para inicio instantáneo
-RUN python -c "from insightface.app import FaceAnalysis; app = FaceAnalysis(name='buffalo_l'); app.prepare(ctx_id=-1)"
+# Pre-descargar modelo biométrico ultra-ligero buffalo_s (optimizado para <512MB RAM)
+ENV OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
+RUN python -c "from insightface.app import FaceAnalysis; app = FaceAnalysis(name='buffalo_s', allowed_modules=['detection', 'recognition']); app.prepare(ctx_id=-1, det_size=(320, 320))"
 
 # Copiar archivos del proyecto
 COPY --chown=user:user . $HOME/app
