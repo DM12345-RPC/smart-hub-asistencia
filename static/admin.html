@@ -371,42 +371,117 @@
                 </div>
             </div>
 
-            <!-- BARRA DE FILTROS Y EXCEL -->
-            <div class="controls-bar">
-                <div class="filters">
-                    <label style="font-size:13px; color:var(--text-sub);">Filtrar:</label>
-                    <select id="filtroEstado" onchange="recargarTabla()">
-                        <option value="TODOS">Todos los Estados</option>
-                        <option value="APROBADO">🟢 Aprobados</option>
-                        <option value="REVISION_GPS">🟡 Revisión GPS</option>
-                        <option value="REVISION_FACIAL">🟡 Revisión Facial</option>
-                        <option value="SOSPECHA_FRAUDE">🔴 Alertas de Fraude</option>
-                    </select>
-
-                    <input type="date" id="filtroFecha" onchange="recargarTabla()">
+            <!-- BARRA SUPERIOR DE ACCIONES Y EXCEL -->
+            <div class="controls-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span id="lblContadorFiltrados" style="font-size:13px; color:#38bdf8; font-weight:700;">
+                        Cargando registros...
+                    </span>
+                    <button type="button" onclick="limpiarTodosFiltros()" class="btn btn-outline" style="padding:5px 10px; font-size:12px;">
+                        🔄 Limpiar Filtros
+                    </button>
                 </div>
                 <div>
-                    <button onclick="exportarExcelLimpio()" class="btn" style="background:#059669;">
+                    <button onclick="exportarExcelLimpio()" class="btn" style="background:#059669; font-weight:700;">
                         📊 Descargar Excel (.CSV Formateado)
                     </button>
                 </div>
             </div>
 
-            <!-- TABLA DE MARCAJES EN TIEMPO REAL -->
+            <!-- TABLA DE MARCAJES EN TIEMPO REAL CON FILTROS POR COLUMNA -->
             <div class="table-card">
                 <table>
                     <thead>
-                        <tr>
-                            <th>Foto</th>
-                            <th>Trabajador</th>
-                            <th>Tipo</th>
-                            <th>Hora Marcada</th>
-                            <th>Obra / Proyecto</th>
-                            <th>Similitud</th>
-                            <th>Distancia</th>
-                            <th>Método</th>
-                            <th>Auditoría</th>
-                            <th>Acciones</th>
+                        <!-- Fila 1: Títulos de Columnas (Click para Ordenar) -->
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <th style="width: 55px; text-align:center;">Foto</th>
+                            <th onclick="ordenarPor('empleado_nombre')" style="cursor:pointer;" title="Click para ordenar">
+                                Trabajador <span id="sort_empleado_nombre" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('tipo')" style="cursor:pointer;" title="Click para ordenar">
+                                Tipo <span id="sort_tipo" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('timestamp_local')" style="cursor:pointer;" title="Click para ordenar">
+                                Hora Marcada <span id="sort_timestamp_local" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('proyecto_nombre')" style="cursor:pointer;" title="Click para ordenar">
+                                Obra / Proyecto <span id="sort_proyecto_nombre" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('similitud_facial')" style="cursor:pointer;" title="Click para ordenar">
+                                Similitud <span id="sort_similitud_facial" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('distancia_metros')" style="cursor:pointer;" title="Click para ordenar">
+                                Distancia <span id="sort_distancia_metros" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('metodo_ubicacion')" style="cursor:pointer;" title="Click para ordenar">
+                                Método <span id="sort_metodo_ubicacion" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th onclick="ordenarPor('estado_auditoria')" style="cursor:pointer;" title="Click para ordenar">
+                                Auditoría <span id="sort_estado_auditoria" style="font-size:10px; color:#64748b;">↕️</span>
+                            </th>
+                            <th style="width: 85px; text-align:center;">Acciones</th>
+                        </tr>
+
+                        <!-- Fila 2: Filtros por cada Columna -->
+                        <tr style="background:#0b1120; border-bottom: 2px solid #334155;">
+                            <th style="text-align:center; padding: 6px 4px;">
+                                <span style="color:#64748b; font-size:11px;">🔍</span>
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <input type="text" id="filtroColTrabajador" placeholder="Nombre..." oninput="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 6px; font-size:11px;">
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColTipo" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                    <option value="">Todos</option>
+                                    <option value="ENTRADA">ENTRADA</option>
+                                    <option value="SALIDA">SALIDA</option>
+                                </select>
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <input type="date" id="filtroColFecha" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:3px 2px; font-size:11px;">
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColProyecto" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                    <option value="">Todas</option>
+                                </select>
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColSimilitud" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                    <option value="">Todas</option>
+                                    <option value="90">≥ 90%</option>
+                                    <option value="80">≥ 80%</option>
+                                    <option value="70">≥ 70%</option>
+                                    <option value="baja">< 70%</option>
+                                </select>
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColDistancia" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                    <option value="">Todas</option>
+                                    <option value="en_obra">≤ 150m (En obra)</option>
+                                    <option value="lejos">> 150m (Fuera)</option>
+                                </select>
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColMetodo" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                    <option value="">Todos</option>
+                                    <option value="GPS">GPS</option>
+                                    <option value="QR_OBRA">QR Sótano</option>
+                                </select>
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColAuditoria" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                    <option value="">Todos</option>
+                                    <option value="APROBADO">🟢 APROBADO</option>
+                                    <option value="REVISION_GPS">🟡 REV. GPS</option>
+                                    <option value="REVISION_FACIAL">🟡 REV. FACIAL</option>
+                                    <option value="SOSPECHA_FRAUDE">🔴 FRAUDE</option>
+                                </select>
+                            </th>
+                            <th style="text-align:center; padding: 6px 4px;">
+                                <button type="button" onclick="limpiarTodosFiltros()" style="background:#334155; color:#f8fafc; border:1px solid #475569; border-radius:6px; padding:4px 6px; font-size:11px; cursor:pointer; font-weight:700; width:100%;" title="Restablecer filtros">
+                                    Reset
+                                </button>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="tablaCuerpo">
@@ -530,7 +605,10 @@
 
     <script>
         let datosMarcajes = [];
+        let marcajesFiltrados = [];
         let datosEmpleados = [];
+        let columnaOrdenActual = '';
+        let direccionOrden = 'asc';
 
         // ================= GESTIÓN DE PESTAÑAS =================
         function cambiarPestana(idTab) {
@@ -573,19 +651,136 @@
         }
 
         async function recargarTabla() {
-            const estado = document.getElementById('filtroEstado').value;
-            const fecha = document.getElementById('filtroFecha').value;
-            let url = `/api/reportes?estado=${estado}`;
-            if (fecha) url += `&fecha=${fecha}`;
-
             try {
-                const res = await fetch(url);
+                const res = await fetch("/api/reportes?limit=1000&estado=TODOS");
                 const data = await res.json();
                 datosMarcajes = data.marcajes || [];
-                renderizarTabla(datosMarcajes);
+                filtrarMarcajes();
             } catch (e) {
                 console.warn("Error cargando tabla:", e);
             }
+        }
+
+        function filtrarMarcajes() {
+            const fTrabajador = (document.getElementById('filtroColTrabajador')?.value || '').toLowerCase().trim();
+            const fTipo = document.getElementById('filtroColTipo')?.value || '';
+            const fFecha = document.getElementById('filtroColFecha')?.value || '';
+            const fProyecto = document.getElementById('filtroColProyecto')?.value || '';
+            const fSimilitud = document.getElementById('filtroColSimilitud')?.value || '';
+            const fDistancia = document.getElementById('filtroColDistancia')?.value || '';
+            const fMetodo = document.getElementById('filtroColMetodo')?.value || '';
+            const fAuditoria = document.getElementById('filtroColAuditoria')?.value || '';
+
+            marcajesFiltrados = datosMarcajes.filter(m => {
+                if (fTrabajador && (!m.empleado_nombre || !m.empleado_nombre.toLowerCase().includes(fTrabajador))) {
+                    return false;
+                }
+                if (fTipo && m.tipo !== fTipo) {
+                    return false;
+                }
+                if (fFecha && (!m.timestamp_local || !m.timestamp_local.startsWith(fFecha))) {
+                    return false;
+                }
+                if (fProyecto && m.proyecto_nombre !== fProyecto) {
+                    return false;
+                }
+                if (fSimilitud) {
+                    const sim = Number(m.similitud_facial || 0);
+                    if (fSimilitud === '90' && sim < 90) return false;
+                    if (fSimilitud === '80' && sim < 80) return false;
+                    if (fSimilitud === '70' && sim < 70) return false;
+                    if (fSimilitud === 'baja' && sim >= 70) return false;
+                }
+                if (fDistancia) {
+                    const d = m.distancia_metros !== null && m.distancia_metros !== undefined ? Number(m.distancia_metros) : null;
+                    if (fDistancia === 'en_obra' && (d === null || d > 150)) return false;
+                    if (fDistancia === 'lejos' && (d === null || d <= 150)) return false;
+                }
+                if (fMetodo && m.metodo_ubicacion !== fMetodo) {
+                    return false;
+                }
+                if (fAuditoria && m.estado_auditoria !== fAuditoria) {
+                    return false;
+                }
+                return true;
+            });
+
+            // Ordenamiento por columna
+            if (columnaOrdenActual) {
+                marcajesFiltrados.sort((a, b) => {
+                    let valA = a[columnaOrdenActual];
+                    let valB = b[columnaOrdenActual];
+                    if (valA === null || valA === undefined) valA = '';
+                    if (valB === null || valB === undefined) valB = '';
+
+                    if (typeof valA === 'string' && typeof valB === 'string') {
+                        return direccionOrden === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    }
+                    return direccionOrden === 'asc' ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+                });
+            }
+
+            const contador = document.getElementById('lblContadorFiltrados');
+            if (contador) {
+                contador.innerText = `Mostrando ${marcajesFiltrados.length} de ${datosMarcajes.length} registros`;
+            }
+
+            renderizarTabla(marcajesFiltrados);
+        }
+
+        function ordenarPor(columna) {
+            if (columnaOrdenActual === columna) {
+                direccionOrden = direccionOrden === 'asc' ? 'desc' : 'asc';
+            } else {
+                columnaOrdenActual = columna;
+                direccionOrden = 'asc';
+            }
+
+            const columnas = [
+                'empleado_nombre', 'tipo', 'timestamp_local', 'proyecto_nombre',
+                'similitud_facial', 'distancia_metros', 'metodo_ubicacion', 'estado_auditoria'
+            ];
+            columnas.forEach(c => {
+                const el = document.getElementById('sort_' + c);
+                if (el) {
+                    if (c === columnaOrdenActual) {
+                        el.innerText = direccionOrden === 'asc' ? '▲' : '▼';
+                        el.style.color = '#38bdf8';
+                    } else {
+                        el.innerText = '↕️';
+                        el.style.color = '#64748b';
+                    }
+                }
+            });
+
+            filtrarMarcajes();
+        }
+
+        function limpiarTodosFiltros() {
+            if (document.getElementById('filtroColTrabajador')) document.getElementById('filtroColTrabajador').value = '';
+            if (document.getElementById('filtroColTipo')) document.getElementById('filtroColTipo').value = '';
+            if (document.getElementById('filtroColFecha')) document.getElementById('filtroColFecha').value = '';
+            if (document.getElementById('filtroColProyecto')) document.getElementById('filtroColProyecto').value = '';
+            if (document.getElementById('filtroColSimilitud')) document.getElementById('filtroColSimilitud').value = '';
+            if (document.getElementById('filtroColDistancia')) document.getElementById('filtroColDistancia').value = '';
+            if (document.getElementById('filtroColMetodo')) document.getElementById('filtroColMetodo').value = '';
+            if (document.getElementById('filtroColAuditoria')) document.getElementById('filtroColAuditoria').value = '';
+
+            columnaOrdenActual = '';
+            direccionOrden = 'asc';
+            const columnas = [
+                'empleado_nombre', 'tipo', 'timestamp_local', 'proyecto_nombre',
+                'similitud_facial', 'distancia_metros', 'metodo_ubicacion', 'estado_auditoria'
+            ];
+            columnas.forEach(c => {
+                const el = document.getElementById('sort_' + c);
+                if (el) {
+                    el.innerText = '↕️';
+                    el.style.color = '#64748b';
+                }
+            });
+
+            filtrarMarcajes();
         }
 
         function renderizarTabla(items) {
@@ -819,6 +1014,15 @@
                             </div>
                         </div>
                     `).join('');
+
+                    // Llenar dinámicamente el selector de filtros de la tabla
+                    const selectProy = document.getElementById('filtroColProyecto');
+                    if (selectProy) {
+                        const valActual = selectProy.value;
+                        selectProy.innerHTML = '<option value="">Todas</option>' + 
+                            data.proyectos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+                        selectProy.value = valActual;
+                    }
                 }
             } catch(e) {}
         }
@@ -848,7 +1052,8 @@
 
         // ================= EXCEL PROFESIONAL (CSV CON PUNTO Y COMA) =================
         function exportarExcelLimpio() {
-            if (datosMarcajes.length === 0) {
+            const listaAExportar = (marcajesFiltrados && marcajesFiltrados.length > 0) ? marcajesFiltrados : datosMarcajes;
+            if (listaAExportar.length === 0) {
                 alert("No hay marcajes para exportar con el filtro actual.");
                 return;
             }
@@ -872,7 +1077,7 @@
 
             let csvContenido = encabezados.join(";") + "\r\n";
 
-            datosMarcajes.forEach(m => {
+            listaAExportar.forEach(m => {
                 const fechaObj = new Date(m.timestamp_local);
                 const fecha = fechaObj.toLocaleDateString('es-ES');
                 const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -886,7 +1091,7 @@
                     `"${m.proyecto_nombre || ''}"`,
                     `"${m.estado_auditoria || ''}"`,
                     `"${m.similitud_facial || 0}%"`,
-                    `"${m.distancia_metros !== null ? Math.round(m.distancia_metros) + ' m' : 'N/A'}"`,
+                    `"${m.distancia_metros !== null && m.distancia_metros !== undefined ? Math.round(m.distancia_metros) + ' m' : 'N/A'}"`,
                     `"${m.metodo_ubicacion || ''}"`,
                     `"${m.gps_accuracy ? '±' + Math.round(m.gps_accuracy) + ' m' : 'N/A'}"`,
                     m.lat || "",
@@ -900,10 +1105,9 @@
             const blob = new Blob(["\uFEFF" + csvContenido], { type: "text/csv;charset=utf-8;" });
             const link = document.createElement("a");
             const fechaHoy = new Date().toISOString().split('T')[0];
-            const estadoFiltro = document.getElementById('filtroEstado').value;
             
             link.href = URL.createObjectURL(blob);
-            link.download = `Asistencia_RyanPacific_${estadoFiltro}_${fechaHoy}.csv`;
+            link.download = `Asistencia_RyanPacific_${fechaHoy}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
