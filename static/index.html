@@ -16,7 +16,29 @@
     <script src="/static/jsQR.min.js"></script>
 
     <style>
-        :root {
+        :root, [data-theme="light"] {
+            --primary: #16a34a;
+            --primary-dark: #15803d;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --danger: #ef4444;
+            --warning: #d97706;
+            --border: #cbd5e1;
+            --input-bg: #ffffff;
+            --input-text: #0f172a;
+            --btn-theme-bg: #f1f5f9;
+            --box-sub-bg: #f8fafc;
+            --modal-bg: #ffffff;
+            --modal-card-bg: #ffffff;
+            --modal-text: #0f172a;
+            --modal-sub: #f8fafc;
+            --modal-border: #e2e8f0;
+            --shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        [data-theme="dark"] {
             --primary: #16a34a;
             --primary-dark: #15803d;
             --bg: #0f172a;
@@ -26,6 +48,16 @@
             --danger: #ef4444;
             --warning: #eab308;
             --border: #334155;
+            --input-bg: #0f172a;
+            --input-text: #f8fafc;
+            --btn-theme-bg: #334155;
+            --box-sub-bg: #0f172a;
+            --modal-bg: #1e293b;
+            --modal-card-bg: #0f172a;
+            --modal-text: #f8fafc;
+            --modal-sub: #0f172a;
+            --modal-border: #334155;
+            --shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -89,9 +121,9 @@
         }
         .user-info { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
         .btn-change-user {
-            background: #334155;
-            color: #cbd5e1;
-            border: none;
+            background: var(--btn-theme-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border);
             padding: 4px 8px;
             border-radius: 6px;
             font-size: 11px;
@@ -101,11 +133,15 @@
         select {
             width: 100%;
             padding: 12px;
-            background: #0f172a;
-            color: white;
+            background: var(--input-bg);
+            color: var(--input-text);
             border: 1px solid var(--border);
             border-radius: 10px;
             font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            outline: none;
+        }
             font-weight: 600;
             margin-bottom: 12px;
             outline: none;
@@ -182,7 +218,7 @@
             justify-content: space-between;
             font-size: 12px;
             padding: 8px 12px;
-            background: #0f172a;
+            background: var(--box-sub-bg);
             border-radius: 8px;
             margin-bottom: 14px;
             border: 1px solid var(--border);
@@ -263,10 +299,10 @@
             width: 100%;
             padding: 12px;
             margin: 8px 0 16px 0;
-            background: #0f172a;
+            background: var(--input-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
-            color: white;
+            color: var(--input-text);
             font-size: 16px;
         }
         .btn-primary {
@@ -337,8 +373,13 @@
         <!-- CABECERA -->
         <div class="header">
             <img src="/static/logo.png" alt="Ryan Pacific Logo" class="logo">
-            <div id="netStatus" class="network-badge net-online">
-                <span class="gps-dot gps-green"></span> Conectado
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" id="btnTema" onclick="toggleTema()" style="background:var(--btn-theme-bg); color:var(--text-main); border:1px solid var(--border); border-radius:18px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    ☀️ Modo Claro
+                </button>
+                <div id="netStatus" class="network-badge net-online">
+                    <span class="gps-dot gps-green"></span> Conectado
+                </div>
             </div>
         </div>
 
@@ -472,7 +513,28 @@
 
     <!-- SCRIPT DE LA APLICACIÓN -->
     <script>
+        // ================= GESTIÓN DE TEMA (CLARO / OSCURO) =================
+        function aplicarTema(tema) {
+            document.documentElement.setAttribute('data-theme', tema);
+            localStorage.setItem('rp_theme', tema);
+            const btn = document.getElementById('btnTema');
+            if (btn) {
+                btn.innerHTML = (tema === 'dark') ? '🌙 Modo Oscuro' : '☀️ Modo Claro';
+            }
+        }
+
+        function toggleTema() {
+            const actual = document.documentElement.getAttribute('data-theme') || 'light';
+            const nuevo = (actual === 'dark') ? 'light' : 'dark';
+            aplicarTema(nuevo);
+        }
+
+        // Modo Claro por defecto
+        const temaInicial = localStorage.getItem('rp_theme') || 'light';
+        aplicarTema(temaInicial);
+
         // ================= CONFIGURACIÓN Y ESTADO =================
+        let proyectosCargados = [];
         let miGPS = { lat: null, lon: null, accuracy: null };
         let currentFacingMode = "user";
         let videoStream = null;
@@ -934,17 +996,22 @@
                 const res = await fetch("/api/proyectos");
                 const data = await res.json();
                 if (data.status === "ok" && data.proyectos) {
+                    proyectosCargados = data.proyectos;
                     localStorage.setItem("rpcs_cache_proyectos", JSON.stringify(data.proyectos));
                     poblarSelectProyectos(data.proyectos);
                 }
             } catch (e) {
                 // Si está offline, usar caché
                 const cached = localStorage.getItem("rpcs_cache_proyectos");
-                if (cached) poblarSelectProyectos(JSON.parse(cached));
+                if (cached) {
+                    proyectosCargados = JSON.parse(cached);
+                    poblarSelectProyectos(proyectosCargados);
+                }
             }
         }
 
         function poblarSelectProyectos(proyectos) {
+            proyectosCargados = proyectos;
             ui.selProyecto.innerHTML = '<option value="">-- Seleccionar Obra / Proyecto --</option>';
             proyectos.forEach(p => {
                 const opt = document.createElement('option');
@@ -1071,11 +1138,11 @@
                     const activosCount = obra.trabajadores.filter(t => t.estado === 'ACTIVO').length;
 
                     html += `
-                    <div style="border:1px solid #cbd5e1; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                    <div style="border:1px solid var(--border); border-radius:14px; padding:14px; background:var(--card-bg); box-shadow:var(--shadow);">
                         
                         <!-- Cabecera de la Obra -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
-                            <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1e293b;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+                            <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:var(--text-main);">
                                 <span style="font-size:16px;">📍</span>
                                 <span>${obra.nombre}</span>
                             </div>
@@ -1086,8 +1153,8 @@
 
                         <!-- Barra de Cuadrilla / Selección Múltiple -->
                         ${activosCount > 0 ? `
-                        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; margin-bottom:10px;">
-                            <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#475569; cursor:pointer;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--box-sub-bg); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-bottom:10px;">
+                            <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--text-sub); cursor:pointer;">
                                 <input type="checkbox" onchange="toggleSeleccionarTodosObra('${obra.nombre}', this.checked)" id="chkAll_${idObraSafe}" style="width:16px; height:16px; cursor:pointer;">
                                 <span>Seleccionar Cuadrilla</span>
                             </label>
@@ -1099,7 +1166,7 @@
 
                         <!-- Lista de Trabajadores -->
                         <div style="display:flex; flex-direction:column; gap:8px;">
-                            ${obra.trabajadores.length === 0 ? '<div style="font-size:12px; color:#94a3b8; font-style:italic;">Sin marcajes hoy</div>' : ''}
+                            ${obra.trabajadores.length === 0 ? '<div style="font-size:12px; color:var(--text-sub); font-style:italic;">Sin marcajes hoy</div>' : ''}
                             ${obra.trabajadores.map((t, idxTrab) => {
                                 const idHist = `hist_${idxObra}_${idxTrab}`;
                                 const esActivo = (t.estado === 'ACTIVO');
@@ -1108,9 +1175,9 @@
                                 const nombreEsc = t.nombre.replace(/'/g, "\\'");
 
                                 return `
-                                <div style="background:${esActivo ? '#ffffff' : '#f8fafc'}; border:1px solid ${esActivo ? '#e2e8f0' : '#f1f5f9'}; border-radius:10px; padding:8px 10px;">
+                                <div style="background:${esActivo ? 'var(--card-bg)' : 'var(--box-sub-bg)'}; border:1px solid var(--border); border-radius:10px; padding:8px 10px;">
                                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
-                                        <div style="display:flex; align-items:center; gap:8px; color:#1e293b; font-weight:600; min-width:0;">
+                                        <div style="display:flex; align-items:center; gap:8px; color:var(--text-main); font-weight:600; min-width:0;">
                                             ${esActivo ? `
                                             <input type="checkbox" class="chk-trab-${idObraSafe}" data-nombre="${t.nombre}" onchange="actualizarSeleccionTrabajador('${obra.nombre}', '${nombreEsc}', this.checked)" style="width:16px; height:16px; cursor:pointer; accent-color:#2563eb;">
                                             ` : '<span style="width:16px; display:inline-block;"></span>'}
@@ -1119,7 +1186,7 @@
                                         <div style="display:flex; align-items:center; gap:6px;">
                                             <span style="${esActivo 
                                                 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
-                                                : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
+                                                : 'background:var(--box-sub-bg); color:var(--text-sub); border:1px solid var(--border);'} 
                                                 font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; letter-spacing:0.3px;">
                                                 ${t.estado}
                                             </span>
@@ -1141,7 +1208,7 @@
                                             <span style="color:#0284c7; font-weight:500; font-size:10px;">(${act.hora_inicio ? act.hora_inicio.slice(0,5) : ''})</span>
                                         </span>
                                         ` : `
-                                        <span style="color:#94a3b8; font-size:11px; font-style:italic;">
+                                        <span style="color:var(--text-sub); font-size:11px; font-style:italic;">
                                             ⚪ Sin piso/actividad asignada
                                         </span>
                                         `}
@@ -1155,12 +1222,12 @@
 
                                     <!-- Historial Desplegable del Día -->
                                     ${totalActs > 1 ? `
-                                    <div id="${idHist}" class="hidden" style="margin-top:8px; padding:8px 10px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1; font-size:11px;">
-                                        <div style="font-weight:700; color:#475569; margin-bottom:4px;">Cronograma de Actividades Hoy:</div>
+                                    <div id="${idHist}" class="hidden" style="margin-top:8px; padding:8px 10px; background:var(--box-sub-bg); border-radius:8px; border:1px dashed var(--border); font-size:11px;">
+                                        <div style="font-weight:700; color:var(--text-sub); margin-bottom:4px;">Cronograma de Actividades Hoy:</div>
                                         ${t.actividades.map((a, i) => `
-                                            <div style="display:flex; justify-content:space-between; padding:2px 0; color:#334155;">
+                                            <div style="display:flex; justify-content:space-between; padding:2px 0; color:var(--text-main);">
                                                 <span><b>${i+1}.</b> ${a.piso} — ${a.actividad}</span>
-                                                <span style="color:#64748b;">${a.hora_inicio.slice(0,5)} ${a.hora_fin ? 'a ' + a.hora_fin.slice(0,5) : '(Actual)'}</span>
+                                                <span style="color:var(--text-sub);">${a.hora_inicio.slice(0,5)} ${a.hora_fin ? 'a ' + a.hora_fin.slice(0,5) : '(Actual)'}</span>
                                             </div>
                                         `).join('')}
                                     </div>
@@ -1245,6 +1312,31 @@
 
             document.getElementById('asigPisoCustom').value = '';
             document.getElementById('asigActividadCustom').value = '';
+
+            // Cargar los pisos y actividades configurados exclusivamente para esta obra
+            const proy = (proyectosCargados || []).find(p => p.nombre === obraNombre);
+
+            let listaPisos = [];
+            if (proy && proy.pisos && proy.pisos.trim()) {
+                listaPisos = proy.pisos.split(',').map(s => s.trim()).filter(Boolean);
+            }
+            if (listaPisos.length === 0) {
+                listaPisos = ['Piso 1', 'Piso 2', 'Piso 3', 'Sótano 1', 'Azotea'];
+            }
+
+            let listaActs = [];
+            if (proy && proy.actividades && proy.actividades.trim()) {
+                listaActs = proy.actividades.split(',').map(s => s.trim()).filter(Boolean);
+            }
+            if (listaActs.length === 0) {
+                listaActs = ['Encofrado', 'Fierrería', 'Vaciado de Concreto', 'Drywall', 'Pintura', 'Limpieza'];
+            }
+
+            const selPiso = document.getElementById('asigPiso');
+            selPiso.innerHTML = listaPisos.map((p, idx) => `<option value="${p}" ${idx === 0 ? 'selected' : ''}>${p}</option>`).join('');
+
+            const selAct = document.getElementById('asigActividad');
+            selAct.innerHTML = listaActs.map((a, idx) => `<option value="${a}" ${idx === 0 ? 'selected' : ''}>${a}</option>`).join('');
 
             const modal = document.getElementById('modalAsignarTarea');
             modal.classList.remove('hidden');
@@ -1334,25 +1426,28 @@
 
     <!-- MODAL RESUMEN DEL DÍA PARA FOREMAN / ADMIN -->
     <div id="modalResumenDia" class="modal hidden" style="align-items:flex-end; padding:0; z-index:2000; background:rgba(15,23,42,0.85);">
-        <div style="background:#ffffff; color:#1e293b; border-radius:20px 20px 0 0; width:100%; max-width:480px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 -10px 25px rgba(0,0,0,0.5); overflow:hidden; margin:0 auto;">
+        <div style="background:var(--card-bg); color:var(--text-main); border-radius:20px 20px 0 0; width:100%; max-width:480px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 -10px 25px rgba(0,0,0,0.5); overflow:hidden; margin:0 auto; border:1px solid var(--border);">
             
             <!-- Header Modal -->
-            <div style="padding:16px 20px 12px 20px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:10px; background:#ffffff;">
-                <span style="font-size:20px; color:#4c1d95;">👥</span>
-                <h3 id="resumenTituloHeader" style="margin:0; font-size:18px; font-weight:800; color:#3b0764; font-family:system-ui, -apple-system, sans-serif;">
-                    Resumen del Día (<span id="resumenTotalCount">0</span>)
-                </h3>
+            <div style="padding:16px 20px 12px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--card-bg);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px; color:#4c1d95;">👥</span>
+                    <h3 id="resumenTituloHeader" style="margin:0; font-size:18px; font-weight:800; color:var(--text-main); font-family:system-ui, -apple-system, sans-serif;">
+                        Resumen del Día (<span id="resumenTotalCount">0</span>)
+                    </h3>
+                </div>
+                <button type="button" onclick="cerrarModalResumenDia()" style="background:var(--btn-theme-bg); border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:bold; color:var(--text-sub);">✕</button>
             </div>
 
             <!-- Contenido con scroll -->
-            <div id="resumenListaObras" style="padding:16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px; background:#f8fafc;">
+            <div id="resumenListaObras" style="padding:16px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px; background:var(--bg);">
                 <div style="text-align:center; padding:30px; color:#64748b;">
                     Cargando personal en obra...
                 </div>
             </div>
 
             <!-- Footer Botón Cerrar -->
-            <div style="padding:12px 16px 20px 16px; background:#ffffff; border-top:1px solid #f1f5f9;">
+            <div style="padding:12px 16px 20px 16px; background:var(--card-bg); border-top:1px solid var(--border);">
                 <button type="button" onclick="cerrarModalResumenDia()" style="width:100%; height:46px; background:#334155; color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; font-family:system-ui, sans-serif;">
                     Cerrar
                 </button>
@@ -1361,81 +1456,55 @@
     </div>
 
     <!-- MODAL PARA ASIGNAR PISO Y ACTIVIDAD (INDIVIDUAL O CUADRILLA) -->
-    <div id="modalAsignarTarea" class="modal hidden" style="align-items:center; justify-content:center; padding:16px; z-index:2100; background:rgba(15,23,42,0.88);">
-        <div style="background:#ffffff; color:#1e293b; border-radius:16px; width:100%; max-width:440px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.5); overflow:hidden;">
+    <div id="modalAsignarTarea" class="modal hidden" style="align-items:center; justify-content:center; padding:16px; z-index:2100; background:rgba(15,23,42,0.85);">
+        <div style="background:var(--card-bg); color:var(--text-main); border-radius:16px; width:100%; max-width:440px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.5); overflow:hidden; border:1px solid var(--border);">
             
             <!-- Header -->
-            <div style="padding:14px 18px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+            <div style="padding:14px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--card-bg);">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:20px;">⚡</span>
                     <div>
-                        <h4 style="margin:0; font-size:16px; font-weight:800; color:#1e293b;">Asignar Piso & Actividad</h4>
-                        <div id="asigObraTitulo" style="font-size:12px; color:#64748b; font-weight:600;">Obra</div>
+                        <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-main);">Asignar Piso & Actividad</h4>
+                        <div id="asigObraTitulo" style="font-size:12px; color:var(--text-sub); font-weight:600;">Obra</div>
                     </div>
                 </div>
-                <button type="button" onclick="cerrarModalAsignar()" style="background:#f1f5f9; border:none; border-radius:50%; width:28px; height:28px; font-weight:bold; cursor:pointer; color:#64748b;">✕</button>
+                <button type="button" onclick="cerrarModalAsignar()" style="background:var(--btn-theme-bg); border:none; border-radius:50%; width:28px; height:28px; font-weight:bold; cursor:pointer; color:var(--text-sub);">✕</button>
             </div>
 
             <!-- Cuerpo Formulario -->
             <div style="padding:16px 18px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
                 
                 <!-- Destinatarios -->
-                <div style="background:#f1f5f9; border-radius:10px; padding:10px 12px; border:1px solid #e2e8f0;">
-                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase;">Asignando a: <span id="asigTrabajadoresCount" style="color:#2563eb;"></span></div>
-                    <div id="asigListaNombres" style="font-size:13px; font-weight:600; color:#1e293b; margin-top:4px; max-height:48px; overflow-y:auto; line-height:1.3;"></div>
+                <div style="background:var(--box-sub-bg); border-radius:10px; padding:10px 12px; border:1px solid var(--border);">
+                    <div style="font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase;">Asignando a: <span id="asigTrabajadoresCount" style="color:#2563eb;"></span></div>
+                    <div id="asigListaNombres" style="font-size:13px; font-weight:600; color:var(--text-main); margin-top:4px; max-height:48px; overflow-y:auto; line-height:1.3;"></div>
                 </div>
 
                 <!-- Selección de Piso -->
                 <div>
-                    <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:4px; display:block;">
-                        📍 Piso o Nivel:
+                    <label style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:block;">
+                        📍 Piso o Nivel (Configurados en esta obra):
                     </label>
-                    <select id="asigPiso" style="width:100%; height:40px; border-radius:8px; border:1px solid #cbd5e1; padding:0 10px; font-size:14px; background:#ffffff; color:#1e293b; font-weight:600;">
-                        <option value="Sótano 2">Sótano 2</option>
-                        <option value="Sótano 1">Sótano 1</option>
-                        <option value="Piso 1" selected>Piso 1</option>
-                        <option value="Piso 2">Piso 2</option>
-                        <option value="Piso 3">Piso 3</option>
-                        <option value="Piso 4">Piso 4</option>
-                        <option value="Piso 5">Piso 5</option>
-                        <option value="Piso 6">Piso 6</option>
-                        <option value="Piso 7">Piso 7</option>
-                        <option value="Piso 8">Piso 8</option>
-                        <option value="Piso 9">Piso 9</option>
-                        <option value="Piso 10">Piso 10</option>
-                        <option value="Azotea / Techo">Azotea / Techo</option>
-                        <option value="Exterior / Fachada">Exterior / Fachada</option>
+                    <select id="asigPiso" style="width:100%; height:40px; border-radius:8px; border:1px solid var(--border); padding:0 10px; font-size:14px; background:var(--input-bg); color:var(--input-text); font-weight:600;">
                     </select>
-                    <input type="text" id="asigPisoCustom" placeholder="O escribe otro piso personalizado..." style="margin-top:6px; width:100%; box-sizing:border-box; height:36px; border-radius:8px; border:1px dashed #94a3b8; padding:0 10px; font-size:13px; background:#f8fafc;">
+                    <input type="text" id="asigPisoCustom" placeholder="O escribe otro piso personalizado..." style="margin-top:6px; width:100%; box-sizing:border-box; height:36px; border-radius:8px; border:1px dashed var(--border); padding:0 10px; font-size:13px; background:var(--box-sub-bg); color:var(--input-text);">
                 </div>
 
                 <!-- Selección de Actividad -->
                 <div>
-                    <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:4px; display:block;">
-                        🔨 Actividad / Labor:
+                    <label style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:block;">
+                        🔨 Actividad / Labor (Configuradas en esta obra):
                     </label>
-                    <select id="asigActividad" style="width:100%; height:40px; border-radius:8px; border:1px solid #cbd5e1; padding:0 10px; font-size:14px; background:#ffffff; color:#1e293b; font-weight:600;">
-                        <option value="Encofrado" selected>Encofrado</option>
-                        <option value="Fierrería / Acero">Fierrería / Acero</option>
-                        <option value="Vaciado de Concreto">Vaciado de Concreto</option>
-                        <option value="Drywall">Drywall</option>
-                        <option value="Albañilería / Muros">Albañilería / Muros</option>
-                        <option value="Pintura">Pintura</option>
-                        <option value="Instalaciones Eléctricas">Instalaciones Eléctricas</option>
-                        <option value="Instalaciones Sanitarias">Instalaciones Sanitarias</option>
-                        <option value="Limpieza General">Limpieza General</option>
-                        <option value="Acabados / Enchapes">Acabados / Enchapes</option>
-                        <option value="Demolición">Demolición</option>
-                        <option value="Ayudantía General">Ayudantía General</option>
+                    <select id="asigActividad" style="width:100%; height:40px; border-radius:8px; border:1px solid var(--border); padding:0 10px; font-size:14px; background:var(--input-bg); color:var(--input-text); font-weight:600;">
                     </select>
-                    <input type="text" id="asigActividadCustom" placeholder="O escribe otra actividad personalizada..." style="margin-top:6px; width:100%; box-sizing:border-box; height:36px; border-radius:8px; border:1px dashed #94a3b8; padding:0 10px; font-size:13px; background:#f8fafc;">
+                    <input type="text" id="asigActividadCustom" placeholder="O escribe otra labor personalizada..." style="margin-top:6px; width:100%; box-sizing:border-box; height:36px; border-radius:8px; border:1px dashed var(--border); padding:0 10px; font-size:13px; background:var(--box-sub-bg); color:var(--input-text);">
                 </div>
 
             </div>
 
             <!-- Footer Botones -->
-            <div style="padding:12px 18px; border-top:1px solid #f1f5f9; display:flex; gap:10px;">
-                <button type="button" onclick="cerrarModalAsignar()" style="flex:1; height:42px; background:#f1f5f9; color:#475569; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">
+            <div style="padding:12px 18px; border-top:1px solid var(--border); display:flex; gap:10px; background:var(--card-bg);">
+                <button type="button" onclick="cerrarModalAsignar()" style="flex:1; height:42px; background:var(--btn-theme-bg); color:var(--text-main); border:1px solid var(--border); border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">
                     Cancelar
                 </button>
                 <button type="button" id="btnConfirmarAsignacion" onclick="guardarAsignacionTarea()" style="flex:2; height:42px; background:#2563eb; color:white; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 4px 6px rgba(37,99,235,0.25);">

@@ -48,9 +48,33 @@ def init_db():
         lon REAL NOT NULL,
         radio_metros INTEGER NOT NULL DEFAULT 150,
         qr_token TEXT NOT NULL UNIQUE,
-        activo INTEGER DEFAULT 1
+        activo INTEGER DEFAULT 1,
+        pisos TEXT DEFAULT '',
+        actividades TEXT DEFAULT ''
     )
     """)
+
+    # Migración de columnas de proyectos si no existen
+    cursor.execute("PRAGMA table_info(proyectos)")
+    cols_proy = [r["name"] for r in cursor.fetchall()]
+    if "pisos" not in cols_proy:
+        cursor.execute("ALTER TABLE proyectos ADD COLUMN pisos TEXT DEFAULT ''")
+    if "actividades" not in cols_proy:
+        cursor.execute("ALTER TABLE proyectos ADD COLUMN actividades TEXT DEFAULT ''")
+
+    # Asegurar que las obras existentes tengan valores iniciales de pisos y actividades si están vacías
+    default_pisos = "Sótano 1, Piso 1, Piso 2, Piso 3, Azotea"
+    default_actividades = "Encofrado, Fierrería / Acero, Vaciado de Concreto, Drywall, Pintura, Limpieza General"
+    cursor.execute("""
+        UPDATE proyectos 
+        SET pisos = ? 
+        WHERE pisos IS NULL OR pisos = ''
+    """, (default_pisos,))
+    cursor.execute("""
+        UPDATE proyectos 
+        SET actividades = ? 
+        WHERE actividades IS NULL OR actividades = ''
+    """, (default_actividades,))
 
     # Tabla de Marcajes de Asistencia
     cursor.execute("""
@@ -215,18 +239,31 @@ def obtener_proyecto_por_qr(qr_token):
     conn.close()
     return dict(row) if row else None
 
-def guardar_proyecto(nombre, lat, lon, radio_metros, qr_token):
+def guardar_proyecto(nombre, lat, lon, radio_metros, qr_token, pisos="", actividades=""):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-    INSERT INTO proyectos (nombre, lat, lon, radio_metros, qr_token)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO proyectos (nombre, lat, lon, radio_metros, qr_token, pisos, actividades)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(nombre) DO UPDATE SET
         lat = excluded.lat,
         lon = excluded.lon,
         radio_metros = excluded.radio_metros,
-        qr_token = excluded.qr_token
-    """, (nombre, lat, lon, radio_metros, qr_token))
+        qr_token = excluded.qr_token,
+        pisos = CASE WHEN excluded.pisos != '' THEN excluded.pisos ELSE proyectos.pisos END,
+        actividades = CASE WHEN excluded.actividades != '' THEN excluded.actividades ELSE proyectos.actividades END
+    """, (nombre, lat, lon, radio_metros, qr_token, pisos, actividades))
+    conn.commit()
+    conn.close()
+
+def actualizar_config_proyecto(proyecto_id, pisos, actividades):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE proyectos
+        SET pisos = ?, actividades = ?
+        WHERE id = ?
+    """, (pisos, actividades, proyecto_id))
     conn.commit()
     conn.close()
 
@@ -289,6 +326,45 @@ def listar_marcajes(limit=100, filtro_estado=None, filtro_fecha=None):
     params.append(limit)
 
     cursor.execute(query, params)
+    rows = cursor.fetchall()
+    marcajes = [dict(r) for r in rows]
+
+    if marcajes:
+        # Obtener la actividad actual (última del día) para cada trabajador
+        cursor.execute("""
+            SELECT id, fecha, empleado_nombre, piso, actividad, hora_inicio, hora_fin
+            FROM actividades_diarias
+            ORDER BY id ASC
+        """)
+        acts = cursor.fetchall()
+        acts_map = {}
+        for a in acts:
+            k = (a["fecha"], a["empleado_nombre"])
+            acts_map[k] = {
+                "piso": a["piso"],
+                "actividad": a["actividad"],
+                "hora_inicio": a["hora_inicio"],
+                "hora_fin": a["hora_fin"]
+            }
+
+        for m in marcajes:
+            fecha_m = (m.get("timestamp_local") or "")[:10]
+            emp_m = m.get("empleado_nombre")
+            m["actividad_actual"] = acts_map.get((fecha_m, emp_m))
+
+    conn.close()
+    return marcajes
+
+def obtener_historial_actividades_empleado_dia(empleado_nombre, fecha):
+    """Retorna todas las actividades que una persona ejecutó en un día específico."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, fecha, empleado_nombre, proyecto_nombre, piso, actividad, hora_inicio, hora_fin, asignado_por
+        FROM actividades_diarias
+        WHERE empleado_nombre = ? AND fecha = ?
+        ORDER BY id ASC
+    """, (empleado_nombre, fecha))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]

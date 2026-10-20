@@ -7,7 +7,31 @@
     
     <link rel="icon" type="image/png" href="/static/icon.png">
     <style>
-        :root {
+        :root, [data-theme="light"] {
+            --primary: #16a34a;
+            --primary-dark: #15803d;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #475569;
+            --border: #cbd5e1;
+            --th-bg: #f1f5f9;
+            --row-hover: #f1f5f9;
+            --filter-bg: #f8fafc;
+            --filter-border: #cbd5e1;
+            --input-bg: #ffffff;
+            --input-text: #0f172a;
+            --input-border: #cbd5e1;
+            --tag-bg-blue: #e0f2fe;
+            --text-blue: #0369a1;
+            --border-blue: #bae6fd;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        [data-theme="dark"] {
             --primary: #16a34a;
             --primary-dark: #15803d;
             --bg: #0b1120;
@@ -15,9 +39,20 @@
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
             --border: #334155;
+            --th-bg: #0f172a;
+            --row-hover: rgba(51, 65, 85, 0.3);
+            --filter-bg: #0b1120;
+            --filter-border: #334155;
+            --input-bg: #1e293b;
+            --input-text: #f8fafc;
+            --input-border: #334155;
+            --tag-bg-blue: #082f49;
+            --text-blue: #38bdf8;
+            --border-blue: #0369a1;
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
 
         body {
@@ -26,9 +61,10 @@
             color: var(--text-main);
             margin: 0;
             padding: 24px;
+            transition: background 0.2s, color 0.2s;
         }
 
-        .container { max-width: 1250px; margin: 0 auto; }
+        .container { max-width: 1300px; margin: 0 auto; }
 
         @media (max-width: 768px) {
             body { padding: 12px !important; }
@@ -54,7 +90,7 @@
         }
         .header-left { display: flex; align-items: center; gap: 16px; }
         .header img.logo { height: 48px; }
-        .header h1 { margin: 0; font-size: 22px; }
+        .header h1 { margin: 0; font-size: 22px; color: var(--text-main); }
 
         .btn {
             background: var(--primary);
@@ -72,10 +108,10 @@
         }
         .btn:hover { opacity: 0.95; }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
-        .btn-outline:hover { background: #334155; }
-        .btn-danger { background: #dc2626; }
+        .btn-outline:hover { background: var(--border); }
+        .btn-danger { background: #dc2626; color: white; }
         .btn-danger:hover { background: #b91c1c; }
-        .btn-maps { background: #2563eb; }
+        .btn-maps { background: #2563eb; color: white; }
         .btn-maps:hover { background: #1d4ed8; }
 
         /* Pestañas de Navegación */
@@ -100,9 +136,10 @@
             bottom: -2px;
         }
         .tab-btn.active {
-            color: #38bdf8;
-            border-bottom: 3px solid #38bdf8;
-            background: rgba(56, 189, 248, 0.08);
+            color: #2563eb;
+            border-bottom: 3px solid #2563eb;
+            background: var(--card-bg);
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.03);
         }
 
         /* Tarjetas de Métricas */
@@ -117,6 +154,7 @@
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 18px;
+            box-shadow: var(--shadow);
         }
         .metric-title { font-size: 13px; color: var(--text-sub); text-transform: uppercase; font-weight: 700; }
         .metric-value { font-size: 32px; font-weight: 800; margin-top: 8px; }
@@ -134,14 +172,16 @@
             margin-bottom: 16px;
         }
         .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        select, input[type="date"], input[type="text"], input[type="number"], input[type="tel"] {
-            background: var(--card-bg);
-            color: white;
-            border: 1px solid var(--border);
+        select, input[type="date"], input[type="text"], input[type="number"], input[type="tel"], textarea {
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
             padding: 9px 12px;
             border-radius: 8px;
             outline: none;
             font-size: 14px;
+            box-sizing: border-box;
+            font-family: inherit;
         }
 
         /* Tabla de Asistencia */
@@ -151,27 +191,29 @@
             border-radius: 14px;
             overflow-x: auto;
             margin-bottom: 30px;
+            box-shadow: var(--shadow);
         }
         table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
             font-size: 14px;
-            min-width: 950px;
+            min-width: 1050px;
         }
         th {
-            background: #0f172a;
-            padding: 14px 16px;
+            background: var(--th-bg);
+            padding: 12px 14px;
             font-weight: 700;
             color: var(--text-sub);
             border-bottom: 1px solid var(--border);
         }
         td {
-            padding: 14px 16px;
-            border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
             vertical-align: middle;
+            color: var(--text-main);
         }
-        tr:hover { background: rgba(51, 65, 85, 0.3); }
+        tr:hover { background: var(--row-hover); }
 
         /* Badges de Auditoría */
         .badge {
@@ -334,7 +376,8 @@
                     <span style="font-size: 13px; color: var(--text-sub);">Base de Datos Interna Ryan Pacific</span>
                 </div>
             </div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <button id="btnTema" onclick="toggleTema()" class="btn btn-outline" style="font-weight:700;">☀️ Modo Claro</button>
                 <button onclick="abrirResumenModalAdmin()" class="btn" style="background:#2563eb;">👥 Resumen del Día</button>
                 <a href="/" target="_blank" class="btn btn-outline">📱 Abrir App Obrero (PWA)</a>
                 <button onclick="recargarDatos()" class="btn">🔄 Actualizar</button>
@@ -374,7 +417,7 @@
             <!-- BARRA SUPERIOR DE ACCIONES Y EXCEL -->
             <div class="controls-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <span id="lblContadorFiltrados" style="font-size:13px; color:#38bdf8; font-weight:700;">
+                    <span id="lblContadorFiltrados" style="font-size:13px; color:#2563eb; font-weight:700;">
                         Cargando registros...
                     </span>
                     <button type="button" onclick="limpiarTodosFiltros()" class="btn btn-outline" style="padding:5px 10px; font-size:12px;">
@@ -410,6 +453,9 @@
                             <th onclick="ordenarPor('proyecto_nombre')" style="cursor:pointer;" title="Click para ordenar">
                                 Obra / Proyecto <span id="sort_proyecto_nombre" style="font-size:10px; color:#64748b;">↕️</span>
                             </th>
+                            <th style="min-width: 140px;">
+                                Actividad Actual
+                            </th>
                             <th onclick="ordenarPor('similitud_facial')" style="cursor:pointer;" title="Click para ordenar">
                                 Similitud <span id="sort_similitud_facial" style="font-size:10px; color:#64748b;">↕️</span>
                             </th>
@@ -426,33 +472,40 @@
                         </tr>
 
                         <!-- Fila 2: Filtros por cada Columna -->
-                        <tr style="background:#0b1120; border-bottom: 2px solid #334155;">
+                        <tr style="background:var(--filter-bg); border-bottom: 2px solid var(--border);">
                             <th style="text-align:center; padding: 6px 4px;">
                                 <span style="color:#64748b; font-size:11px;">🔍</span>
                             </th>
                             <th style="padding: 6px 4px;">
-                                <input type="text" id="filtroColTrabajador" placeholder="Nombre..." oninput="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 6px; font-size:11px;">
+                                <input type="text" id="filtroColTrabajador" placeholder="Nombre..." oninput="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 6px; font-size:11px;">
                             </th>
                             <th style="padding: 6px 4px;">
-                                <select id="filtroColTipo" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                <select id="filtroColTipo" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 2px; font-size:11px;">
                                     <option value="">Todos</option>
                                     <option value="ENTRADA">ENTRADA</option>
                                     <option value="SALIDA">SALIDA</option>
                                 </select>
                             </th>
                             <th style="padding: 6px 4px;">
-                                <input type="date" id="filtroColFecha" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:3px 2px; font-size:11px;">
+                                <input type="date" id="filtroColFecha" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:3px 2px; font-size:11px;">
                             </th>
                             <th style="padding: 6px 4px;">
-                                <select id="filtroColProyecto" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                <select id="filtroColProyecto" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 2px; font-size:11px;">
                                     <option value="">Todas</option>
                                 </select>
                             </th>
                             <th style="padding: 6px 4px;">
-                                <select id="filtroColSimilitud" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; background:#1e293b; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:4px 2px; font-size:11px;">
+                                <input type="text" id="filtroColActividad" placeholder="Piso / Tarea..." oninput="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 6px; font-size:11px;">
+                            </th>
+                            <th style="padding: 6px 4px;">
+                                <select id="filtroColSimilitud" onchange="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 2px; font-size:11px;">
                                     <option value="">Todas</option>
                                     <option value="90">≥ 90%</option>
                                     <option value="80">≥ 80%</option>
+                                    <option value="70">≥ 70%</option>
+                                    <option value="baja">< 70%</option>
+                                </select>
+                            </th>
                                     <option value="70">≥ 70%</option>
                                     <option value="baja">< 70%</option>
                                 </select>
@@ -536,6 +589,21 @@
                                 <input type="number" step="any" id="pLon" placeholder="Longitud (ej. -118.2437)" required>
                             </div>
                             <input type="number" id="pRadio" placeholder="Radio de Geocerca (metros)" value="150" required>
+                            
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:3px;">
+                                    📍 Pisos Disponibles (separados por coma):
+                                </label>
+                                <textarea id="pPisos" placeholder="ej. Sótano 2, Sótano 1, Piso 1, Piso 2, Piso 3, Azotea" rows="2" style="width:100%;"></textarea>
+                            </div>
+
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:3px;">
+                                    🔨 Actividades Disponibles (separadas por coma):
+                                </label>
+                                <textarea id="pActividades" placeholder="ej. Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza" rows="2" style="width:100%;"></textarea>
+                            </div>
+
                             <button type="submit" class="btn">Guardar Obra y Generar QR</button>
                         </div>
                     </form>
@@ -580,7 +648,7 @@
                     </div>
                     <div class="modal-info-item">
                         <div class="modal-info-label">Coincidencia Facial IA:</div>
-                        <div id="modSimilitud" class="modal-info-val" style="color:#38bdf8;">-</div>
+                        <div id="modSimilitud" class="modal-info-val" style="color:#0284c7;">-</div>
                     </div>
                     <div class="modal-info-item">
                         <div class="modal-info-label">Distancia a la Obra:</div>
@@ -595,7 +663,21 @@
                 </div>
             </div>
 
-            <div id="modNotas" style="margin-top:16px; padding:12px; background:#0f172a; border-radius:8px; font-size:12px; color:#cbd5e1; border:1px solid var(--border);"></div>
+            <div id="modNotas" style="margin-top:16px; padding:12px; background:var(--th-bg); border-radius:8px; font-size:12px; color:var(--text-main); border:1px solid var(--border);"></div>
+
+            <!-- Récord de Actividades del Día en el Modal -->
+            <div style="margin-top:16px; padding:14px; background:var(--card-bg); border-radius:10px; border:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="font-size:12px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                        <span>📋</span>
+                        <span>RÉCORD DE ACTIVIDADES DEL DÍA:</span>
+                    </div>
+                    <span id="modTotalActsBadge" style="font-size:11px; font-weight:700; color:#0369a1; background:var(--tag-bg-blue); padding:2px 8px; border-radius:12px;">0 tareas</span>
+                </div>
+                <div id="modHistorialActs" style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+                    <div style="color:var(--text-sub); font-size:12px;">Sin tareas registradas hoy.</div>
+                </div>
+            </div>
 
             <!-- Botón de Borrado en el Modal -->
             <div style="margin-top:16px; display:flex; justify-content:flex-end;">
@@ -606,10 +688,65 @@
         </div>
     </div>
 
+    <!-- MODAL DE CONFIGURACIÓN DE PISOS Y ACTIVIDADES DE OBRA -->
+    <div id="modalConfigObra" class="modal hidden" onclick="cerrarConfigObraModalFondo(event)">
+        <div class="modal-box" style="max-width:520px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>
+                    <h3 id="confObraTitulo" style="margin:0; font-size:18px;">Configurar Pisos & Actividades</h3>
+                    <span style="font-size:12px; color:var(--text-sub);">Estas opciones exactas aparecerán en la app para asignar tareas</span>
+                </div>
+                <button class="close-btn" onclick="cerrarConfigObraModal()">✕</button>
+            </div>
+            <form onsubmit="guardarConfigObra(event)" style="display:flex; flex-direction:column; gap:14px;">
+                <input type="hidden" id="confObraId">
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:block;">
+                        📍 Pisos / Niveles Disponibles (separados por coma):
+                    </label>
+                    <textarea id="confObraPisos" rows="3" style="width:100%; box-sizing:border-box;" placeholder="ej. Sótano 2, Sótano 1, Piso 1, Piso 2, Piso 3, Azotea"></textarea>
+                    <span style="font-size:11px; color:var(--text-sub);">Escribe cada piso separado por una coma.</span>
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:block;">
+                        🔨 Actividades / Labores Disponibles (separadas por coma):
+                    </label>
+                    <textarea id="confObraActividades" rows="3" style="width:100%; box-sizing:border-box;" placeholder="ej. Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza"></textarea>
+                    <span style="font-size:11px; color:var(--text-sub);">Escribe cada labor separada por una coma.</span>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                    <button type="button" onclick="cerrarConfigObraModal()" class="btn btn-outline">Cancelar</button>
+                    <button type="submit" class="btn" style="background:#2563eb;">💾 Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
+        // ================= GESTIÓN DE TEMA (CLARO / OSCURO) =================
+        function aplicarTema(tema) {
+            document.documentElement.setAttribute('data-theme', tema);
+            localStorage.setItem('rp_theme', tema);
+            const btn = document.getElementById('btnTema');
+            if (btn) {
+                btn.innerHTML = (tema === 'dark') ? '🌙 Modo Oscuro' : '☀️ Modo Claro';
+            }
+        }
+
+        function toggleTema() {
+            const actual = document.documentElement.getAttribute('data-theme') || 'light';
+            const nuevo = (actual === 'dark') ? 'light' : 'dark';
+            aplicarTema(nuevo);
+        }
+
+        // Aplicar tema claro por defecto de inmediato
+        const temaInicial = localStorage.getItem('rp_theme') || 'light';
+        aplicarTema(temaInicial);
+
         let datosMarcajes = [];
         let marcajesFiltrados = [];
         let datosEmpleados = [];
+        let datosProyectos = [];
         let columnaOrdenActual = '';
         let direccionOrden = 'asc';
 
@@ -669,6 +806,7 @@
             const fTipo = document.getElementById('filtroColTipo')?.value || '';
             const fFecha = document.getElementById('filtroColFecha')?.value || '';
             const fProyecto = document.getElementById('filtroColProyecto')?.value || '';
+            const fActividad = (document.getElementById('filtroColActividad')?.value || '').toLowerCase().trim();
             const fSimilitud = document.getElementById('filtroColSimilitud')?.value || '';
             const fDistancia = document.getElementById('filtroColDistancia')?.value || '';
             const fMetodo = document.getElementById('filtroColMetodo')?.value || '';
@@ -686,6 +824,11 @@
                 }
                 if (fProyecto && m.proyecto_nombre !== fProyecto) {
                     return false;
+                }
+                if (fActividad) {
+                    if (!m.actividad_actual) return false;
+                    const textoAct = `${m.actividad_actual.piso || ''} ${m.actividad_actual.actividad || ''}`.toLowerCase();
+                    if (!textoAct.includes(fActividad)) return false;
                 }
                 if (fSimilitud) {
                     const sim = Number(m.similitud_facial || 0);
@@ -748,7 +891,7 @@
                 if (el) {
                     if (c === columnaOrdenActual) {
                         el.innerText = direccionOrden === 'asc' ? '▲' : '▼';
-                        el.style.color = '#38bdf8';
+                        el.style.color = '#2563eb';
                     } else {
                         el.innerText = '↕️';
                         el.style.color = '#64748b';
@@ -764,6 +907,7 @@
             if (document.getElementById('filtroColTipo')) document.getElementById('filtroColTipo').value = '';
             if (document.getElementById('filtroColFecha')) document.getElementById('filtroColFecha').value = '';
             if (document.getElementById('filtroColProyecto')) document.getElementById('filtroColProyecto').value = '';
+            if (document.getElementById('filtroColActividad')) document.getElementById('filtroColActividad').value = '';
             if (document.getElementById('filtroColSimilitud')) document.getElementById('filtroColSimilitud').value = '';
             if (document.getElementById('filtroColDistancia')) document.getElementById('filtroColDistancia').value = '';
             if (document.getElementById('filtroColMetodo')) document.getElementById('filtroColMetodo').value = '';
@@ -789,7 +933,7 @@
         function renderizarTabla(items) {
             const tbody = document.getElementById('tablaCuerpo');
             if (items.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 30px; color:#94a3b8;">No hay marcajes que coincidan con el filtro seleccionado.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 30px; color:#94a3b8;">No hay marcajes que coincidan con el filtro seleccionado.</td></tr>';
                 return;
             }
 
@@ -801,6 +945,11 @@
                     '<span style="color:#64748b; font-size:12px;">Sin foto</span>';
                 const distText = m.distancia_metros !== null ? `${Math.round(m.distancia_metros)}m` : 'N/A';
                 
+                const act = m.actividad_actual;
+                const actHtml = act ? 
+                    `<span style="background:var(--tag-bg-blue); color:var(--text-blue); border:1px solid var(--border-blue); font-weight:700; padding:2px 8px; border-radius:6px; font-size:11px; display:inline-block; white-space:nowrap;">📍 ${act.piso} • 🔨 ${act.actividad}</span>` : 
+                    `<span style="color:var(--text-sub); font-size:11px; font-style:italic;">Sin asignar</span>`;
+
                 return `
                     <tr>
                         <td>${fotoTag}</td>
@@ -811,7 +960,8 @@
                             <div style="font-size:11px; color:#64748b;">${fecha}</div>
                         </td>
                         <td>${m.proyecto_nombre}</td>
-                        <td style="font-weight:bold; color:#38bdf8;">${m.similitud_facial}%</td>
+                        <td>${actHtml}</td>
+                        <td style="font-weight:bold; color:#0284c7;">${m.similitud_facial}%</td>
                         <td>${distText}</td>
                         <td><span style="font-size:12px; font-weight:600;">${m.metodo_ubicacion}</span></td>
                         <td><span class="badge badge-${m.estado_auditoria}">${m.estado_auditoria}</span></td>
@@ -848,7 +998,7 @@
         }
 
         // ================= MODAL DE INSPECCIÓN =================
-        function abrirModalInspeccion(id) {
+        async function abrirModalInspeccion(id) {
             const m = datosMarcajes.find(item => item.id === id);
             if (!m) return;
 
@@ -881,6 +1031,47 @@
                 `;
             } else {
                 mapaBtnContainer.innerHTML = '<span style="font-size:12px; color:#94a3b8;">Ubicación GPS no registrada</span>';
+            }
+
+            // Consultar récord cronológico de actividades del día para este trabajador
+            const contHist = document.getElementById('modHistorialActs');
+            const badgeTotal = document.getElementById('modTotalActsBadge');
+            contHist.innerHTML = '<div style="color:var(--text-sub); font-size:12px;">⏳ Consultando récord de actividades del día...</div>';
+            badgeTotal.innerText = '...';
+
+            const fechaIso = m.timestamp_local ? m.timestamp_local.split('T')[0] : new Date().toISOString().split('T')[0];
+            try {
+                const resAct = await fetch(`/api/actividades/record_dia?empleado=${encodeURIComponent(m.empleado_nombre)}&fecha=${encodeURIComponent(fechaIso)}`);
+                const dataAct = await resAct.json();
+                if (dataAct.status === 'ok' && dataAct.actividades && dataAct.actividades.length > 0) {
+                    badgeTotal.innerText = `${dataAct.actividades.length} tarea(s)`;
+                    contHist.innerHTML = dataAct.actividades.map((a, idx) => {
+                        const hIni = a.hora_inicio ? a.hora_inicio.slice(0, 5) : '--:--';
+                        const hFin = a.hora_fin ? a.hora_fin.slice(0, 5) : 'Actual';
+                        const durText = a.duracion_minutos ? ` (${Math.round(a.duracion_minutos)} min)` : '';
+                        const esActual = !a.hora_fin;
+                        return `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:${esActual ? 'var(--tag-bg-blue)' : 'var(--filter-bg)'}; border:1px solid ${esActual ? 'var(--border-blue)' : 'var(--border)'}; border-radius:8px;">
+                            <div>
+                                <span style="font-weight:700; color:var(--text-main);">#${idx + 1} 📍 ${a.piso} — 🔨 ${a.actividad}</span>
+                                ${a.observaciones ? `<div style="font-size:11px; color:var(--text-sub); margin-top:2px;">💬 ${a.observaciones}</div>` : ''}
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-weight:700; font-size:12px; color:${esActual ? '#0284c7' : 'var(--text-sub)'};">
+                                    ${hIni} → ${hFin}
+                                </div>
+                                <div style="font-size:10px; color:var(--text-sub);">${durText}</div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('');
+                } else {
+                    badgeTotal.innerText = '0 tareas';
+                    contHist.innerHTML = '<div style="color:var(--text-sub); font-size:12px; font-style:italic;">⚪ Sin actividades asignadas para esta fecha.</div>';
+                }
+            } catch (errHist) {
+                badgeTotal.innerText = '0';
+                contHist.innerHTML = '<div style="color:#ef4444; font-size:12px;">Error al consultar récord de actividades.</div>';
             }
 
             document.getElementById('modalInspeccion').classList.remove('hidden');
@@ -999,24 +1190,42 @@
                 const data = await res.json();
                 const container = document.getElementById('listaProyectos');
                 if (data.proyectos && data.proyectos.length > 0) {
-                    container.innerHTML = data.proyectos.map(p => `
-                        <div class="project-item">
-                            <div>
-                                <div style="font-weight:700;">${p.nombre}</div>
-                                <div style="font-size:12px; color:#94a3b8;">
-                                    Radio: ${p.radio_metros}m • Lat: ${p.lat}, Lon: ${p.lon}
+                    datosProyectos = data.proyectos;
+                    container.innerHTML = data.proyectos.map(p => {
+                        const pisosStr = p.pisos || 'Piso 1, Piso 2, Piso 3, Sótano 1, Azotea';
+                        const actsStr = p.actividades || 'Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza';
+                        const pNombreEsc = (p.nombre || '').replace(/'/g, "\\'");
+                        const pPisosEsc = (p.pisos || '').replace(/'/g, "\\'");
+                        const pActsEsc = (p.actividades || '').replace(/'/g, "\\'");
+
+                        return `
+                        <div class="project-item" style="display:flex; flex-direction:column; gap:8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <div style="font-weight:800; font-size:15px; color:var(--text-main);">📍 ${p.nombre}</div>
+                                    <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">
+                                        Radio: ${p.radio_metros}m • Lat: ${p.lat}, Lon: ${p.lon}
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                    <button onclick="abrirConfigurarObraModal(${p.id}, '${pNombreEsc}', '${pPisosEsc}', '${pActsEsc}')" class="btn" style="background:#2563eb; font-size:11px; padding:5px 9px;">
+                                        ⚙️ Pisos & Labores
+                                    </button>
+                                    <a href="/api/qr_proyecto/${p.id}" target="_blank" download="QR_${p.nombre}.png" class="btn btn-outline" style="font-size:11px; padding:5px 9px;">
+                                        🖨 Cartel QR
+                                    </a>
+                                    <button onclick="eliminarProyecto(${p.id}, '${pNombreEsc}')" class="btn btn-danger" style="font-size:11px; padding:5px 9px;">
+                                        🗑️
+                                    </button>
                                 </div>
                             </div>
-                            <div style="display:flex; gap:6px;">
-                                <a href="/api/qr_proyecto/${p.id}" target="_blank" download="QR_${p.nombre}.png" class="btn btn-outline" style="font-size:12px; padding:6px 10px;">
-                                    🖨 Cartel QR
-                                </a>
-                                <button onclick="eliminarProyecto(${p.id}, '${p.nombre}')" class="btn btn-danger" style="font-size:12px; padding:6px 10px;">
-                                    🗑️
-                                </button>
+                            <div style="background:var(--filter-bg); border:1px dashed var(--border); border-radius:8px; padding:8px 10px; font-size:11px; display:flex; flex-direction:column; gap:4px;">
+                                <div><b style="color:var(--text-main);">📍 Pisos disponibles:</b> <span style="color:var(--text-sub);">${pisosStr}</span></div>
+                                <div><b style="color:var(--text-main);">🔨 Labores disponibles:</b> <span style="color:var(--text-sub);">${actsStr}</span></div>
                             </div>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
 
                     // Llenar dinámicamente el selector de filtros de la tabla
                     const selectProy = document.getElementById('filtroColProyecto');
@@ -1026,8 +1235,54 @@
                             data.proyectos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
                         selectProy.value = valActual;
                     }
+                } else {
+                    container.innerHTML = '<div style="color:var(--text-sub); padding:16px;">No hay obras registradas aún.</div>';
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.warn("Error cargando proyectos:", e);
+            }
+        }
+
+        function abrirConfigurarObraModal(id, nombre, pisos, actividades) {
+            document.getElementById('confObraId').value = id;
+            document.getElementById('confObraTitulo').innerText = `Configurar: ${nombre}`;
+            document.getElementById('confObraPisos').value = pisos || '';
+            document.getElementById('confObraActividades').value = actividades || '';
+            const modal = document.getElementById('modalConfigObra');
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarConfigObraModal() {
+            document.getElementById('modalConfigObra').classList.add('hidden');
+        }
+
+        function cerrarConfigObraModalFondo(e) {
+            if (e.target.id === 'modalConfigObra') cerrarConfigObraModal();
+        }
+
+        async function guardarConfigObra(e) {
+            e.preventDefault();
+            const id = document.getElementById('confObraId').value;
+            const pisos = document.getElementById('confObraPisos').value.trim();
+            const actividades = document.getElementById('confObraActividades').value.trim();
+
+            try {
+                const res = await fetch(`/api/proyectos/${id}/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pisos, actividades })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert("✅ Configuración de pisos y labores actualizada para esta obra.");
+                    cerrarConfigObraModal();
+                    cargarProyectosAdmin();
+                } else {
+                    alert("Error guardando configuración: " + (data.error || ''));
+                }
+            } catch (err) {
+                alert("Error de red al guardar configuración");
+            }
         }
 
         async function guardarNuevoProyecto(e) {
@@ -1037,6 +1292,8 @@
             fd.append("lat", document.getElementById('pLat').value);
             fd.append("lon", document.getElementById('pLon').value);
             fd.append("radio_metros", document.getElementById('pRadio').value);
+            fd.append("pisos", document.getElementById('pPisos').value);
+            fd.append("actividades", document.getElementById('pActividades').value);
 
             const res = await fetch("/api/proyectos", { method: "POST", body: fd });
             const data = await res.json();

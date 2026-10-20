@@ -24,6 +24,7 @@ from .database import (
     obtener_proyecto_por_nombre,
     obtener_proyecto_por_qr,
     guardar_proyecto,
+    actualizar_config_proyecto,
     eliminar_proyecto,
     registrar_marcaje,
     listar_marcajes,
@@ -34,7 +35,8 @@ from .database import (
     obtener_resumen_dia_foreman,
     asignar_actividad_empleados,
     cerrar_actividades_abiertas_empleado,
-    obtener_reporte_actividades_costos
+    obtener_reporte_actividades_costos,
+    obtener_historial_actividades_empleado_dia
 )
 from .geofence import validar_posicion_en_obra
 from .biometrics import decodificar_imagen, extraer_vector_rostro, verificar_1_a_1, detectar_borrosidad
@@ -162,14 +164,24 @@ def api_guardar_proyecto(
     lat: float = Form(...),
     lon: float = Form(...),
     radio_metros: int = Form(150),
-    qr_token: Optional[str] = Form(None)
+    qr_token: Optional[str] = Form(None),
+    pisos: Optional[str] = Form(""),
+    actividades: Optional[str] = Form("")
 ):
     if not qr_token:
         codigo_limpio = "".join([c for c in nombre.upper() if c.isalnum()])[:8]
         qr_token = f"RPCS-{codigo_limpio}-{uuid.uuid4().hex[:6].upper()}"
 
-    guardar_proyecto(nombre, lat, lon, radio_metros, qr_token)
+    guardar_proyecto(nombre, lat, lon, radio_metros, qr_token, pisos=pisos or "", actividades=actividades or "")
     return {"status": "ok", "mensaje": "Proyecto guardado", "qr_token": qr_token}
+
+
+@app.post("/api/proyectos/{proyecto_id}/config")
+async def api_actualizar_config_proyecto(proyecto_id: int, payload: dict):
+    pisos = payload.get("pisos", "").strip()
+    actividades = payload.get("actividades", "").strip()
+    actualizar_config_proyecto(proyecto_id, pisos, actividades)
+    return {"status": "ok", "mensaje": "Pisos y actividades actualizados correctamente"}
 
 
 @app.delete("/api/proyectos/{proyecto_id}")
@@ -576,6 +588,16 @@ def api_reporte_actividades_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+
+@app.get("/api/actividades/record_dia")
+def api_record_actividades_empleado(
+    empleado: str = Query(...),
+    fecha: str = Query(...)
+):
+    """Retorna la lista cronológica de actividades realizadas por un trabajador en una fecha."""
+    actividades = obtener_historial_actividades_empleado_dia(empleado_nombre=empleado, fecha=fecha)
+    return {"status": "ok", "total": len(actividades), "actividades": actividades}
 
 
 # Servir fotos de capturas y de perfiles oficiales
