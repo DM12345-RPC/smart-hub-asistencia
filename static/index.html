@@ -788,13 +788,25 @@
                 return;
             }
 
+            // 1. Verificación Antidoble Marcaje en Frontend:
+            if (tipo === "ENTRADA" && estadoHoyMarcaje && estadoHoyMarcaje.estado === "ACTIVO") {
+                alert(`⚠️ Ya registraste tu ENTRADA hoy a las ${estadoHoyMarcaje.hora || ''} en ${estadoHoyMarcaje.proyecto || 'obra'}.\n\nNo se permite doble entrada. Solo debes marcar SALIDA al terminar tu jornada laboral.`);
+                return;
+            }
+
+            if (tipo === "SALIDA" && (!estadoHoyMarcaje || estadoHoyMarcaje.estado === "SIN_MARCAJE")) {
+                if (!confirm("⚠️ Aún no has registrado tu ENTRADA de hoy.\n\n¿Estás seguro de que deseas marcar SALIDA directamente?")) {
+                    return;
+                }
+            }
+
             const proy = ui.selProyecto.value;
             if (!proy) {
                 alert("Por favor selecciona en qué Obra / Proyecto te encuentras.");
                 return;
             }
 
-            // Bloquear botones brevemente
+            // Bloquear botones durante el registro
             ui.btnEntrada.disabled = true;
             ui.btnSalida.disabled = true;
 
@@ -821,6 +833,24 @@
             // 1. GUARDAR EN EL CELULAR EN 0.1 SEGUNDOS
             await guardarPunchLocal(punchData);
 
+            // Actualizar estado local inmediato de la jornada
+            if (tipo === "ENTRADA") {
+                estadoHoyMarcaje = {
+                    estado: "ACTIVO",
+                    ultimo_tipo: "ENTRADA",
+                    hora: horaFormateada,
+                    proyecto: proy
+                };
+            } else if (tipo === "SALIDA") {
+                estadoHoyMarcaje = {
+                    estado: "SALIO",
+                    ultimo_tipo: "SALIDA",
+                    hora: horaFormateada,
+                    proyecto: proy
+                };
+            }
+            localStorage.setItem("rpcs_estado_hoy", JSON.stringify(estadoHoyMarcaje));
+
             // Feedback háptico y sonoro
             if ("vibrate" in navigator) navigator.vibrate([80, 40, 80]);
             reproducirSonidoExito();
@@ -836,8 +866,8 @@
             qrEscaneadoActivo = null;
 
             setTimeout(() => {
-                ui.btnEntrada.disabled = false;
-                ui.btnSalida.disabled = false;
+                ui.confirmacionBox.classList.add('hidden');
+                actualizarEstadoBotonesMarcaje();
             }, 2500);
 
             // 2. DISPARAR SINCRONIZACIÓN EN SEGUNDO PLANO
@@ -903,8 +933,95 @@
         // Intentar sincronizar periódicamente cada 30 segundos
         setInterval(sincronizarLoteSiHayRed, 30000);
 
+        let estadoHoyMarcaje = null;
+        let obrasAsignadasUsuario = "ALL";
+
+        function actualizarEstadoBotonesMarcaje() {
+            if (!ui.btnEntrada || !ui.btnSalida) return;
+
+            if (estadoHoyMarcaje && estadoHoyMarcaje.estado === 'ACTIVO') {
+                // Entrada ya registrada hoy: bloquear botón de ENTRADA para evitar doble marcaje
+                ui.btnEntrada.disabled = true;
+                ui.btnEntrada.style.opacity = '0.42';
+                ui.btnEntrada.style.cursor = 'not-allowed';
+                ui.btnEntrada.style.filter = 'grayscale(35%)';
+                const horaIn = estadoHoyMarcaje.hora ? estadoHoyMarcaje.hora.slice(0, 5) : '';
+                ui.btnEntrada.innerHTML = `
+                    <span style="font-size:22px;">✅</span>
+                    <span style="display:flex; flex-direction:column; align-items:center; line-height:1.2;">
+                        <span style="font-size:13px; font-weight:800;">Entrada Marcada</span>
+                        <span style="font-size:11px; font-weight:600; opacity:0.85;">${horaIn ? `(${horaIn})` : 'Hoy'}</span>
+                    </span>
+                `;
+
+                // Salida activa y lista para marcar
+                ui.btnSalida.disabled = false;
+                ui.btnSalida.style.opacity = '1';
+                ui.btnSalida.style.cursor = 'pointer';
+                ui.btnSalida.style.filter = 'none';
+                ui.btnSalida.innerHTML = `
+                    <span style="font-size:24px;">🔴</span>
+                    <span>Marcar Salida</span>
+                `;
+            } else if (estadoHoyMarcaje && estadoHoyMarcaje.estado === 'SALIO') {
+                // Jornada completada: ya marcó salida hoy
+                ui.btnEntrada.disabled = false;
+                ui.btnEntrada.style.opacity = '1';
+                ui.btnEntrada.style.cursor = 'pointer';
+                ui.btnEntrada.style.filter = 'none';
+                ui.btnEntrada.innerHTML = `
+                    <span style="font-size:24px;">🟢</span>
+                    <span>Entrada</span>
+                `;
+
+                ui.btnSalida.disabled = true;
+                ui.btnSalida.style.opacity = '0.42';
+                ui.btnSalida.style.cursor = 'not-allowed';
+                ui.btnSalida.style.filter = 'grayscale(35%)';
+                const horaOut = estadoHoyMarcaje.hora ? estadoHoyMarcaje.hora.slice(0, 5) : '';
+                ui.btnSalida.innerHTML = `
+                    <span style="font-size:22px;">🚪</span>
+                    <span style="display:flex; flex-direction:column; align-items:center; line-height:1.2;">
+                        <span style="font-size:13px; font-weight:800;">Salida Marcada</span>
+                        <span style="font-size:11px; font-weight:600; opacity:0.85;">${horaOut ? `(${horaOut})` : 'Hoy'}</span>
+                    </span>
+                `;
+            } else {
+                // Sin marcajes hoy
+                ui.btnEntrada.disabled = false;
+                ui.btnEntrada.style.opacity = '1';
+                ui.btnEntrada.style.cursor = 'pointer';
+                ui.btnEntrada.style.filter = 'none';
+                ui.btnEntrada.innerHTML = `
+                    <span style="font-size:24px;">🟢</span>
+                    <span>Entrada</span>
+                `;
+
+                ui.btnSalida.disabled = false;
+                ui.btnSalida.style.opacity = '1';
+                ui.btnSalida.style.cursor = 'pointer';
+                ui.btnSalida.style.filter = 'none';
+                ui.btnSalida.innerHTML = `
+                    <span style="font-size:24px;">🔴</span>
+                    <span>Salida</span>
+                `;
+            }
+        }
+
         // ================= GESTIÓN DE PERFIL DEL TRABAJADOR =================
         function cargarPerfilActual() {
+            const cachedEstado = localStorage.getItem("rpcs_estado_hoy");
+            if (cachedEstado) {
+                try {
+                    estadoHoyMarcaje = JSON.parse(cachedEstado);
+                    actualizarEstadoBotonesMarcaje();
+                } catch(e) {}
+            }
+            const cachedObras = localStorage.getItem("rpcs_obras_asignadas");
+            if (cachedObras) {
+                obrasAsignadasUsuario = cachedObras;
+            }
+
             const nombre = localStorage.getItem("rpcs_nombre");
             if (nombre) {
                 ui.lblTrabajador.innerText = nombre;
@@ -1012,16 +1129,38 @@
         }
 
         function poblarSelectProyectos(proyectos) {
-            proyectosCargados = proyectos;
+            proyectosCargados = proyectos || [];
             ui.selProyecto.innerHTML = '<option value="">-- Seleccionar Obra / Proyecto --</option>';
-            proyectos.forEach(p => {
+
+            const obrasAsignadas = (window.obrasAsignadasUsuario || localStorage.getItem("rpcs_obras_asignadas") || 'ALL').trim();
+            const esAll = (obrasAsignadas.toUpperCase() === 'ALL');
+            const permitidasSet = new Set(
+                esAll ? [] : obrasAsignadas.split(',').map(s => s.trim().toLowerCase())
+            );
+
+            const proysFiltrados = esAll 
+                ? proyectosCargados 
+                : proyectosCargados.filter(p => permitidasSet.has(p.nombre.toLowerCase()));
+
+            const listaUsar = proysFiltrados.length > 0 ? proysFiltrados : proyectosCargados;
+
+            listaUsar.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.nombre;
                 opt.innerText = p.nombre;
                 ui.selProyecto.appendChild(opt);
             });
-            const last = localStorage.getItem("rpcs_ultimo_proyecto");
-            if (last) ui.selProyecto.value = last;
+
+            // Si solo tiene 1 obra asignada, seleccionarla automáticamente
+            if (!esAll && proysFiltrados.length === 1) {
+                ui.selProyecto.value = proysFiltrados[0].nombre;
+                localStorage.setItem("rpcs_ultimo_proyecto", proysFiltrados[0].nombre);
+            } else {
+                const last = localStorage.getItem("rpcs_ultimo_proyecto");
+                if (last && Array.from(ui.selProyecto.options).some(o => o.value === last)) {
+                    ui.selProyecto.value = last;
+                }
+            }
         }
 
         ui.selProyecto.addEventListener('change', () => {
@@ -1073,13 +1212,35 @@
                     const badgeRol = document.getElementById('badgeRol');
                     const foremanRoleText = document.getElementById('foremanRoleText');
 
+                    // Guardar obras asignadas
+                    obrasAsignadasUsuario = data.obras_asignadas || 'ALL';
+                    localStorage.setItem("rpcs_obras_asignadas", obrasAsignadasUsuario);
+
+                    // Guardar y aplicar estado de marcaje de hoy
+                    if (data.estado_hoy) {
+                        estadoHoyMarcaje = data.estado_hoy;
+                        localStorage.setItem("rpcs_estado_hoy", JSON.stringify(estadoHoyMarcaje));
+                        actualizarEstadoBotonesMarcaje();
+                    }
+
+                    // Refrescar selector de proyectos con las obras autorizadas
+                    if (proyectosCargados && proyectosCargados.length > 0) {
+                        poblarSelectProyectos(proyectosCargados);
+                    }
+
                     if (rol === 'foreman' || rol === 'admin') {
                         foremanBar.classList.remove('hidden');
                         foremanBar.style.display = 'block';
+
+                        let obrasLabel = '';
+                        if (obrasAsignadasUsuario.toUpperCase() !== 'ALL') {
+                            obrasLabel = ` • Obra: ${obrasAsignadasUsuario}`;
+                        }
+
                         if (rol === 'admin') {
                             btnIrAdmin.classList.remove('hidden');
                             btnIrAdmin.style.display = 'block';
-                            foremanRoleText.textContent = 'Admin / Gerencia';
+                            foremanRoleText.textContent = 'Admin / Gerencia' + obrasLabel;
                             if (badgeRol) {
                                 badgeRol.textContent = '👑 Admin';
                                 badgeRol.style.background = '#8b5cf6';
@@ -1089,7 +1250,7 @@
                         } else {
                             btnIrAdmin.classList.add('hidden');
                             btnIrAdmin.style.display = 'none';
-                            foremanRoleText.textContent = 'Foreman / Capataz';
+                            foremanRoleText.textContent = 'Foreman / Capataz' + obrasLabel;
                             if (badgeRol) {
                                 badgeRol.textContent = '🏗️ Foreman';
                                 badgeRol.style.background = '#2563eb';
@@ -1122,8 +1283,10 @@
             lista.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">⏳ Cargando personal en obra...</div>';
             seleccionCuadrilla = {};
 
+            const nombreActual = localStorage.getItem("rpcs_nombre") || "";
+
             try {
-                const resp = await fetch('/api/resumen_dia');
+                const resp = await fetch(`/api/resumen_dia?foreman=${encodeURIComponent(nombreActual)}`);
                 const data = await resp.json();
                 countSpan.textContent = data.gran_total_activos || 0;
 

@@ -721,6 +721,43 @@
         </div>
     </div>
 
+    <!-- MODAL DE ASIGNACIÓN DE OBRAS A EMPLEADO -->
+    <div id="modalAsignarObras" class="modal hidden" onclick="cerrarAsignarObrasModalFondo(event)">
+        <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>
+                    <h3 id="asigObrasTitulo" style="margin:0; font-size:18px;">Asignar Obras</h3>
+                    <span id="asigObrasSubtitulo" style="font-size:12px; color:var(--text-sub);">Define a qué obras tendrá acceso este usuario</span>
+                </div>
+                <button class="close-btn" onclick="cerrarAsignarObrasModal()">✕</button>
+            </div>
+            <div style="margin-top:14px;">
+                <input type="hidden" id="asigObrasEmpId">
+                <div style="background:var(--box-sub-bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; color:var(--text-main); cursor:pointer;">
+                        <input type="checkbox" id="chkObraAll" onchange="toggleObraAll(this.checked)" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
+                        <span>🌐 Todas las Obras (Acceso Total - ALL)</span>
+                    </label>
+                    <div style="font-size:11px; color:var(--text-sub); margin-left:26px; margin-top:2px;">
+                        Por defecto. El usuario podrá ver y supervisar en cualquier obra de la empresa.
+                    </div>
+                </div>
+
+                <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                    O seleccionar una o más obras específicas:
+                </div>
+                <div id="listaCheckObras" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
+                    <!-- Se llena dinámicamente con los proyectos -->
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+                    <button type="button" class="btn" style="background:#334155; color:white;" onclick="cerrarAsignarObrasModal()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarAsignacionObras()">💾 Guardar Asignación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ================= GESTIÓN DE TEMA (CLARO / OSCURO) =================
         function aplicarTema(tema) {
@@ -1107,6 +1144,23 @@
                 const fecha = new Date(emp.fecha_registro).toLocaleDateString();
                 const tel = emp.telefono ? `📞 ${emp.telefono}` : '<span style="color:#64748b;">Sin teléfono</span>';
                 const rolActual = emp.rol || 'worker';
+                const obrasActuales = emp.obras_asignadas || 'ALL';
+
+                // Texto y color del badge de obras
+                let badgeObrasTexto = '🌐 Todas (ALL)';
+                let badgeObrasColor = '#38bdf8';
+                if (obrasActuales.toUpperCase() !== 'ALL') {
+                    const arrayObras = obrasActuales.split(',').map(s => s.trim()).filter(Boolean);
+                    if (arrayObras.length === 1) {
+                        badgeObrasTexto = `📍 ${arrayObras[0]}`;
+                    } else {
+                        badgeObrasTexto = `📍 ${arrayObras.length} Obras Asignadas`;
+                    }
+                    badgeObrasColor = '#34d399';
+                }
+
+                const nombreEsc = (emp.nombre || '').replace(/'/g, "\\'");
+                const obrasEsc = (obrasActuales || 'ALL').replace(/'/g, "\\'");
 
                 return `
                     <div class="worker-card">
@@ -1116,6 +1170,8 @@
                                 ${emp.nombre}
                             </div>
                             <div style="font-size:13px; color:#38bdf8; margin:2px 0;">${tel}</div>
+                            
+                            <!-- ROL -->
                             <div style="display:flex; align-items:center; gap:6px; margin:4px 0;">
                                 <label style="font-size:11px; color:#94a3b8; font-weight:600;">Rol:</label>
                                 <select onchange="cambiarRolTrabajador(${emp.id}, this.value)" style="background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; cursor:pointer;">
@@ -1124,6 +1180,19 @@
                                     <option value="admin" ${rolActual === 'admin' ? 'selected' : ''}>👑 Admin</option>
                                 </select>
                             </div>
+
+                            <!-- OBRAS ASIGNADAS -->
+                            <div style="display:flex; align-items:center; gap:6px; margin:4px 0; flex-wrap:wrap;">
+                                <label style="font-size:11px; color:#94a3b8; font-weight:600;">Obras:</label>
+                                <button type="button" 
+                                        onclick="abrirModalAsignarObrasEmpleado(${emp.id}, '${nombreEsc}', '${obrasEsc}')" 
+                                        style="background:#0f172a; color:${badgeObrasColor}; border:1px solid #334155; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; max-width:210px;"
+                                        title="Click para asignar o cambiar las obras autorizadas">
+                                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${badgeObrasTexto}</span>
+                                    <span style="font-size:10px; color:#94a3b8;">✏️</span>
+                                </button>
+                            </div>
+
                             <div style="font-size:11px; color:#94a3b8;">Registrado: ${fecha}</div>
                         </div>
                         <div>
@@ -1134,6 +1203,103 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        let empEditandoObrasId = null;
+
+        function abrirModalAsignarObrasEmpleado(id, nombre, obrasAsignadas) {
+            empEditandoObrasId = id;
+            document.getElementById('asigObrasEmpId').value = id;
+            document.getElementById('asigObrasTitulo').innerText = `Obras de: ${nombre}`;
+            
+            const chkAll = document.getElementById('chkObraAll');
+            const listaDiv = document.getElementById('listaCheckObras');
+
+            const esAll = (!obrasAsignadas || obrasAsignadas.trim().toUpperCase() === 'ALL');
+            chkAll.checked = esAll;
+
+            const obrasSet = new Set(
+                esAll ? [] : obrasAsignadas.split(',').map(s => s.trim().toLowerCase())
+            );
+
+            if (!datosProyectos || datosProyectos.length === 0) {
+                listaDiv.innerHTML = '<div style="color:#94a3b8; font-size:12px; padding:8px;">No hay obras registradas en el sistema.</div>';
+            } else {
+                listaDiv.innerHTML = datosProyectos.map(p => {
+                    const checked = (!esAll && obrasSet.has(p.nombre.toLowerCase())) ? 'checked' : '';
+                    const disabled = esAll ? 'disabled' : '';
+                    return `
+                        <label style="display:flex; align-items:center; gap:8px; background:var(--box-sub-bg); border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:12px; cursor:pointer; color:var(--text-main);">
+                            <input type="checkbox" class="chk-obra-item" value="${p.nombre}" ${checked} ${disabled} onchange="onCheckObraItemChange()" style="width:16px; height:16px; accent-color:#2563eb; cursor:pointer;">
+                            <span>📍 <strong>${p.nombre}</strong></span>
+                        </label>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('modalAsignarObras').classList.remove('hidden');
+        }
+
+        function toggleObraAll(isAll) {
+            const checkboxes = document.querySelectorAll('.chk-obra-item');
+            checkboxes.forEach(cb => {
+                cb.disabled = isAll;
+                if (isAll) cb.checked = false;
+            });
+        }
+
+        function onCheckObraItemChange() {
+            const checkboxes = document.querySelectorAll('.chk-obra-item:checked');
+            const chkAll = document.getElementById('chkObraAll');
+            if (checkboxes.length > 0) {
+                chkAll.checked = false;
+            }
+        }
+
+        function cerrarAsignarObrasModal() {
+            document.getElementById('modalAsignarObras').classList.add('hidden');
+            empEditandoObrasId = null;
+        }
+
+        function cerrarAsignarObrasModalFondo(e) {
+            if (e.target.id === 'modalAsignarObras') cerrarAsignarObrasModal();
+        }
+
+        async function guardarAsignacionObras() {
+            if (!empEditandoObrasId) return;
+            const chkAll = document.getElementById('chkObraAll');
+            let obrasValor = 'ALL';
+
+            if (!chkAll.checked) {
+                const checkedBoxes = Array.from(document.querySelectorAll('.chk-obra-item:checked')).map(cb => cb.value.trim());
+                if (checkedBoxes.length === 0) {
+                    if (!confirm("No seleccionaste ninguna obra específica. ¿Deseas asignar 'ALL' (Acceso a todas)?")) {
+                        return;
+                    }
+                    obrasValor = 'ALL';
+                } else {
+                    obrasValor = checkedBoxes.join(', ');
+                }
+            }
+
+            try {
+                const res = await fetch(`/api/empleados/${empEditandoObrasId}/obras`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ obras: obrasValor })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const emp = datosEmpleados.find(e => e.id === empEditandoObrasId);
+                    if (emp) emp.obras_asignadas = obrasValor;
+                    cerrarAsignarObrasModal();
+                    filtrarPersonalAdmin();
+                } else {
+                    alert("Error guardando obras asignadas: " + (data.error || ''));
+                }
+            } catch(e) {
+                alert("Error de red al guardar obras asignadas");
+            }
         }
 
         async function cambiarRolTrabajador(id, nuevoRol) {
@@ -1157,7 +1323,12 @@
 
         function filtrarPersonalAdmin() {
             const q = document.getElementById('buscadorPersonal').value.toLowerCase().trim();
-            const filtrados = datosEmpleados.filter(e => e.nombre.toLowerCase().includes(q) || (e.telefono && e.telefono.includes(q)) || (e.rol && e.rol.toLowerCase().includes(q)));
+            const filtrados = datosEmpleados.filter(e => 
+                (e.nombre && e.nombre.toLowerCase().includes(q)) || 
+                (e.telefono && e.telefono.includes(q)) || 
+                (e.rol && e.rol.toLowerCase().includes(q)) ||
+                (e.obras_asignadas && e.obras_asignadas.toLowerCase().includes(q))
+            );
             renderizarEmpleados(filtrados);
         }
 

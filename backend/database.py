@@ -38,6 +38,8 @@ def init_db():
         cursor.execute("ALTER TABLE empleados ADD COLUMN foto_perfil TEXT")
     if "rol" not in cols_emp:
         cursor.execute("ALTER TABLE empleados ADD COLUMN rol TEXT DEFAULT 'worker'")
+    if "obras_asignadas" not in cols_emp:
+        cursor.execute("ALTER TABLE empleados ADD COLUMN obras_asignadas TEXT DEFAULT 'ALL'")
 
     # Tabla de Proyectos / Obras
     cursor.execute("""
@@ -177,7 +179,9 @@ def listar_empleados():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT id, nombre, telefono, puesto, COALESCE(rol, 'worker') as rol, foto_perfil, fecha_registro, activo 
+    SELECT id, nombre, telefono, puesto, COALESCE(rol, 'worker') as rol, 
+           COALESCE(obras_asignadas, 'ALL') as obras_asignadas,
+           foto_perfil, fecha_registro, activo 
     FROM empleados 
     WHERE activo = 1 
     ORDER BY nombre ASC
@@ -196,6 +200,16 @@ def actualizar_rol_empleado(empleado_id, nuevo_rol):
     conn.close()
     return True
 
+def actualizar_obras_empleado(empleado_id, obras_str):
+    if not obras_str or not str(obras_str).strip():
+        obras_str = 'ALL'
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE empleados SET obras_asignadas = ? WHERE id = ?", (str(obras_str).strip(), empleado_id))
+    conn.commit()
+    conn.close()
+    return True
+
 def obtener_rol_empleado(nombre):
     conn = get_connection()
     cursor = conn.cursor()
@@ -205,6 +219,62 @@ def obtener_rol_empleado(nombre):
     if row and row["rol"]:
         return row["rol"]
     return "worker"
+
+def obtener_obras_empleado(nombre):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT obras_asignadas FROM empleados WHERE nombre = ? AND activo = 1", (nombre,))
+    row = cursor.fetchone()
+    conn.close()
+    if row and row["obras_asignadas"]:
+        return row["obras_asignadas"]
+    return "ALL"
+
+def obtener_estado_hoy_empleado(nombre):
+    """
+    Retorna el estado de marcaje de hoy para un trabajador:
+    - 'ACTIVO' si su último marcaje hoy fue ENTRADA (no puede marcar entrada otra vez).
+    - 'SALIO' si su último marcaje hoy fue SALIDA.
+    - 'SIN_MARCAJE' si no tiene ningún registro hoy.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("""
+        SELECT id, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
+        FROM marcajes
+        WHERE empleado_nombre = ? AND (timestamp_local LIKE ? OR timestamp_servidor LIKE ?)
+        ORDER BY id DESC LIMIT 1
+    """, (nombre, f"{hoy}%", f"{hoy}%"))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        tipo = (row["tipo"] or "").upper()
+        ts = row["timestamp_local"] or row["timestamp_servidor"] or ""
+        hora_str = ""
+        if "T" in ts:
+            hora_str = ts.split("T")[1][:8]
+        elif " " in ts:
+            hora_str = ts.split(" ")[1][:8]
+        else:
+            hora_str = ts[-8:]
+
+        return {
+            "estado": "ACTIVO" if tipo == "ENTRADA" else "SALIO",
+            "ultimo_tipo": tipo,
+            "hora": hora_str,
+            "proyecto": row["proyecto_nombre"],
+            "marcaje_id": row["id"]
+        }
+
+    return {
+        "estado": "SIN_MARCAJE",
+        "ultimo_tipo": None,
+        "hora": None,
+        "proyecto": None,
+        "marcaje_id": None
+    }
 
 def eliminar_empleado(empleado_id):
     conn = get_connection()
@@ -417,14 +487,25 @@ def obtener_metricas_dashboard():
         "trabajadores_activos_hoy": trabajadores_activos
     }
 
-def obtener_resumen_dia_foreman():
+def obtener_resumen_dia_foreman(foreman_nombre=None):
     """
     Genera el resumen en tiempo real del personal en cada obra para el Foreman y Admin.
-    Calcula activos (último marcaje hoy = ENTRADA) vs salidos (último marcaje hoy = SALIDA).
+    Si se especifica foreman_nombre y tiene obras asignadas específicas (no 'ALL'),
+    filtra para que solo vea las obras y trabajadores que tiene autorizados.
     """
     conn = get_connection()
     cursor = conn.cursor()
     hoy = datetime.now().strftime("%Y-%m-%d")
+
+    # Verificar si el usuario consultante tiene filtro de obras
+    obras_permitidas = None
+    if foreman_nombre:
+        cursor.execute("SELECT obras_asignadas, rol FROM empleados WHERE nombre = ? AND activo = 1", (foreman_nombre,))
+        fore_row = cursor.fetchone()
+        if fore_row:
+            obras_raw = fore_row["obras_asignadas"] or "ALL"
+            if obras_raw.strip().upper() != "ALL":
+                obras_permitidas = [o.strip() for o in obras_raw.split(",") if o.strip()]
 
     # Obtener el último marcaje de cada trabajador hoy y su foto de ingreso
     query = """
@@ -473,6 +554,10 @@ def obtener_resumen_dia_foreman():
     cursor.execute("SELECT nombre FROM proyectos WHERE activo = 1 ORDER BY nombre ASC")
     proyectos = [p["nombre"] for p in cursor.fetchall()]
 
+    # Si hay obras permitidas para este foreman, filtrar los proyectos base
+    if obras_permitidas is not None:
+        proyectos = [p for p in proyectos if any(p.strip().lower() == op.lower() for op in obras_permitidas)]
+
     # Actividades asignadas hoy agrupadas por empleado
     cursor.execute("""
         SELECT id, fecha, empleado_nombre, proyecto_nombre, piso, actividad, hora_inicio, hora_fin, asignado_por
@@ -506,6 +591,12 @@ def obtener_resumen_dia_foreman():
 
     for f in filas:
         p_nom = f["proyecto_nombre"] or "Sin Obra Asignada"
+
+        # Si el foreman tiene obras restringidas, omitir marcajes de otras obras
+        if obras_permitidas is not None:
+            if not any(p_nom.strip().lower() == op.lower() for op in obras_permitidas):
+                continue
+
         if p_nom not in obras_dict:
             obras_dict[p_nom] = {"nombre": p_nom, "activos": 0, "total": 0, "trabajadores": []}
 
@@ -530,7 +621,7 @@ def obtener_resumen_dia_foreman():
             "actividades": emp_acts
         })
 
-    # Filtrar solo obras con trabajadores hoy (o todas si no hay ninguno)
+    # Filtrar solo obras con trabajadores hoy (o las obras permitidas si no tienen trabajadores aún)
     obras_lista = [v for v in obras_dict.values() if v["total"] > 0]
     if not obras_lista:
         obras_lista = [v for v in obras_dict.values()]

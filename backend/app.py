@@ -32,6 +32,9 @@ from .database import (
     obtener_metricas_dashboard,
     actualizar_rol_empleado,
     obtener_rol_empleado,
+    actualizar_obras_empleado,
+    obtener_obras_empleado,
+    obtener_estado_hoy_empleado,
     obtener_resumen_dia_foreman,
     asignar_actividad_empleados,
     cerrar_actividades_abiertas_empleado,
@@ -89,17 +92,23 @@ def panel_administracion_subpath(path: str):
 
 @app.get("/api/empleado_info")
 def api_empleado_info(nombre: str = Query(...)):
-    """Retorna información del empleado, incluyendo su rol (worker, foreman, admin)."""
+    """Retorna información del empleado, incluyendo su rol (worker, foreman, admin), obras y estado de hoy."""
     emp = obtener_empleado(nombre)
     rol = emp.get("rol", "worker") if emp else "worker"
     if not rol:
         rol = "worker"
+    obras = emp.get("obras_asignadas", "ALL") if emp else "ALL"
+    if not obras:
+        obras = "ALL"
+    estado_hoy = obtener_estado_hoy_empleado(nombre)
     return {
         "status": "ok",
         "exists": emp is not None,
         "nombre": nombre,
         "rol": rol,
-        "telefono": emp.get("telefono", "") if emp else ""
+        "obras_asignadas": obras,
+        "telefono": emp.get("telefono", "") if emp else "",
+        "estado_hoy": estado_hoy
     }
 
 @app.post("/api/empleados/{empleado_id}/rol")
@@ -109,10 +118,21 @@ def api_actualizar_rol(empleado_id: int, payload: dict):
     actualizar_rol_empleado(empleado_id, nuevo_rol)
     return {"status": "ok", "empleado_id": empleado_id, "nuevo_rol": nuevo_rol}
 
+@app.post("/api/empleados/{empleado_id}/obras")
+def api_actualizar_obras(empleado_id: int, payload: dict):
+    """Actualiza las obras asignadas a un empleado ('ALL' o nombres separados por coma)."""
+    obras = payload.get("obras", "ALL")
+    if isinstance(obras, list):
+        obras = ", ".join([str(o).strip() for o in obras if str(o).strip()])
+    if not obras or not str(obras).strip():
+        obras = "ALL"
+    actualizar_obras_empleado(empleado_id, str(obras).strip())
+    return {"status": "ok", "empleado_id": empleado_id, "obras_asignadas": str(obras).strip()}
+
 @app.get("/api/resumen_dia")
-def api_resumen_dia():
+def api_resumen_dia(foreman: Optional[str] = Query(None)):
     """Retorna el resumen del día agrupado por obra para el Foreman y Admin."""
-    return obtener_resumen_dia_foreman()
+    return obtener_resumen_dia_foreman(foreman_nombre=foreman)
 
 
 # ---------------- API LISTA OFICIAL DE PERSONAL ----------------
@@ -310,6 +330,20 @@ def procesar_un_marcaje(payload: dict) -> dict:
     offline = 1 if payload.get("offline_sincronizado") else 0
 
     empleado = obtener_empleado(nombre)
+
+    # 0. Verificación Antidoble Marcaje: Impedir registrar ENTRADA si ya está ACTIVO hoy
+    if tipo == "ENTRADA":
+        estado_hoy = obtener_estado_hoy_empleado(nombre)
+        if estado_hoy and estado_hoy["estado"] == "ACTIVO":
+            hora_prev = estado_hoy.get("hora") or "hora anterior"
+            proy_prev = estado_hoy.get("proyecto") or "la obra"
+            return {
+                "status": "error",
+                "error_code": "DOBLE_ENTRADA",
+                "error": f"Ya tienes una ENTRADA registrada hoy a las {hora_prev} en {proy_prev}. No se permite registrar doble entrada; debes marcar SALIDA al terminar tu jornada.",
+                "hora_marcada": hora_prev,
+                "proyecto": proy_prev
+            }
 
     # 1. Guardar foto de marcaje en disco
     nombre_archivo_foto = None
@@ -528,6 +562,16 @@ async def api_asignar_actividades(payload: dict):
 
     if not empleados or not piso or not actividad:
         raise HTTPException(status_code=400, detail="Debe especificar al menos un trabajador, piso y actividad.")
+
+    # Validar que si el supervisor tiene obras asignadas específicas, no asigne en otra obra
+    if asignado_por and asignado_por != "Admin":
+        foreman_emp = obtener_empleado(asignado_por)
+        if foreman_emp:
+            obras_raw = foreman_emp.get("obras_asignadas", "ALL") or "ALL"
+            if obras_raw.strip().upper() != "ALL":
+                permitidas = [o.strip().lower() for o in obras_raw.split(",") if o.strip()]
+                if proyecto.strip().lower() not in permitidas:
+                    raise HTTPException(status_code=403, detail=f"No tienes autorización para asignar tareas en la obra '{proyecto}'.")
 
     asignar_actividad_empleados(
         empleados_nombres=empleados,

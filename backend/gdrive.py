@@ -38,13 +38,18 @@ def obtener_servicio_drive():
             except Exception as e:
                 logger.error(f"Error cargando credenciales de variable GDRIVE_SERVICE_ACCOUNT_JSON: {e}")
 
-        # 2. Secret File en Render (/etc/secrets/service_account.json)
-        secret_file = "/etc/secrets/service_account.json"
-        if not creds and os.path.exists(secret_file):
-            try:
-                creds = service_account.Credentials.from_service_account_file(secret_file, scopes=SCOPES)
-            except Exception as e:
-                logger.error(f"Error cargando credenciales de {secret_file}: {e}")
+        # 2. Secret File en Render (/etc/secrets/service_account.json o en la raíz)
+        posibles_secret_files = [
+            "/etc/secrets/service_account.json",
+            os.path.join(BASE_DIR, "service_account.json")
+        ]
+        for s_file in posibles_secret_files:
+            if not creds and os.path.exists(s_file):
+                try:
+                    creds = service_account.Credentials.from_service_account_file(s_file, scopes=SCOPES)
+                    break
+                except Exception as e:
+                    logger.error(f"Error cargando credenciales de {s_file}: {e}")
 
         # 3. Archivo local backend/service_account.json (para pruebas locales)
         if not creds and os.path.exists(CREDENTIALS_FILE):
