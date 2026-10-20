@@ -31,7 +31,10 @@ from .database import (
     obtener_metricas_dashboard,
     actualizar_rol_empleado,
     obtener_rol_empleado,
-    obtener_resumen_dia_foreman
+    obtener_resumen_dia_foreman,
+    asignar_actividad_empleados,
+    cerrar_actividades_abiertas_empleado,
+    obtener_reporte_actividades_costos
 )
 from .geofence import validar_posicion_en_obra
 from .biometrics import decodificar_imagen, extraer_vector_rostro, verificar_1_a_1, detectar_borrosidad
@@ -401,6 +404,13 @@ def procesar_un_marcaje(payload: dict) -> dict:
         "notas": motivo_ubicacion
     })
 
+    # Si es SALIDA, cerrar cualquier actividad abierta del día para este empleado
+    if tipo.upper() == "SALIDA":
+        try:
+            cerrar_actividades_abiertas_empleado(nombre, timestamp_local)
+        except Exception as e:
+            print("Error cerrando actividad abierta:", e)
+
     return {
         "status": "ok",
         "marcaje_id": marcaje_id,
@@ -479,6 +489,93 @@ def api_reportes(
 ):
     marcajes = listar_marcajes(limit=limit, filtro_estado=estado, filtro_fecha=fecha)
     return {"status": "ok", "total": len(marcajes), "marcajes": marcajes}
+
+
+# ---------------- API DE ACTIVIDADES Y ASIGNACIONES DE PISO ----------------
+
+@app.post("/api/actividades/asignar")
+async def api_asignar_actividades(payload: dict):
+    empleados = payload.get("empleados", [])
+    proyecto = payload.get("proyecto_nombre", "")
+    piso = payload.get("piso", "").strip()
+    actividad = payload.get("actividad", "").strip()
+    asignado_por = payload.get("asignado_por", "Foreman")
+    hora = payload.get("hora", None)
+    notas = payload.get("notas", "")
+
+    if not empleados or not piso or not actividad:
+        raise HTTPException(status_code=400, detail="Debe especificar al menos un trabajador, piso y actividad.")
+
+    asignar_actividad_empleados(
+        empleados_nombres=empleados,
+        proyecto_nombre=proyecto,
+        piso=piso,
+        actividad=actividad,
+        asignado_por=asignado_por,
+        hora_personalizada=hora,
+        notas=notas
+    )
+    return {
+        "status": "ok",
+        "total_asignados": len(empleados),
+        "mensaje": f"Tarea asignada exitosamente a {len(empleados)} trabajador(es)."
+    }
+
+
+@app.get("/api/reporte_actividades")
+def api_obtener_reporte_actividades(
+    fecha: Optional[str] = None,
+    proyecto: Optional[str] = "TODOS"
+):
+    filas = obtener_reporte_actividades_costos(fecha_inicio=fecha, proyecto_nombre=proyecto)
+    return {"status": "ok", "total": len(filas), "actividades": filas}
+
+
+@app.get("/api/reporte_actividades_csv")
+def api_reporte_actividades_csv(
+    fecha: Optional[str] = None,
+    proyecto: Optional[str] = "TODOS"
+):
+    filas = obtener_reporte_actividades_costos(fecha_inicio=fecha, proyecto_nombre=proyecto)
+    encabezados = [
+        "ID Registro",
+        "Fecha",
+        "Nombre del Trabajador",
+        "Obra / Proyecto",
+        "Piso Asignado",
+        "Actividad Ejecutada",
+        "Hora Inicio Tarea",
+        "Hora Fin Tarea",
+        "Horas Dedicadas",
+        "Asignado Por",
+        "Hora Entrada Obra",
+        "Hora Salida Obra"
+    ]
+    csv_text = ";".join(encabezados) + "\r\n"
+    for f in filas:
+        row = [
+            str(f["id"]),
+            f'"{f["fecha"]}"',
+            f'"{f["empleado_nombre"]}"',
+            f'"{f["proyecto_nombre"]}"',
+            f'"{f["piso"]}"',
+            f'"{f["actividad"]}"',
+            f'"{f["hora_inicio"]}"',
+            f'"{f["hora_fin"]}"',
+            str(f["horas_dedicadas"]).replace(".", ","),
+            f'"{f["asignado_por"]}"',
+            f'"{f["entrada_general"]}"',
+            f'"{f["salida_general"]}"'
+        ]
+        csv_text += ";".join(row) + "\r\n"
+
+    buffer = io.BytesIO(("\ufeff" + csv_text).encode("utf-8"))
+    filename = f"Actividades_y_Costos_RyanPacific_{fecha or datetime.now().strftime('%Y-%m-%d')}.csv"
+    return StreamingResponse(
+        buffer,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 # Servir fotos de capturas y de perfiles oficiales

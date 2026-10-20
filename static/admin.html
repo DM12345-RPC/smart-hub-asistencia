@@ -381,9 +381,12 @@
                         🔄 Limpiar Filtros
                     </button>
                 </div>
-                <div>
-                    <button onclick="exportarExcelLimpio()" class="btn" style="background:#059669; font-weight:700;">
-                        📊 Descargar Excel (.CSV Formateado)
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button onclick="exportarExcelActividades()" class="btn" style="background:#2563eb; font-weight:700;" title="Descarga reporte donde cada actividad ejecutada es 1 fila independiente con sus horas y piso para liquidación de nómina">
+                        💰 Excel Actividades y Costos (.CSV)
+                    </button>
+                    <button onclick="exportarExcelLimpio()" class="btn" style="background:#059669; font-weight:700;" title="Descarga el reporte de asistencia general de entrada y salida">
+                        📊 Descargar Excel Asistencia (.CSV)
                     </button>
                 </div>
             </div>
@@ -1113,6 +1116,14 @@
             document.body.removeChild(link);
         }
 
+        function exportarExcelActividades() {
+            const fecha = document.getElementById('filtroColFecha')?.value || '';
+            const proy = document.getElementById('filtroColProyecto')?.value || 'TODOS';
+            let url = `/api/reporte_actividades_csv?proyecto=${encodeURIComponent(proy)}`;
+            if (fecha) url += `&fecha=${encodeURIComponent(fecha)}`;
+            window.location.href = url;
+        }
+
         async function abrirResumenModalAdmin() {
             const modal = document.getElementById('modalResumenDiaAdmin');
             const lista = document.getElementById('resumenListaObrasAdmin');
@@ -1132,10 +1143,10 @@
                 }
 
                 let html = '';
-                data.obras.forEach(obra => {
+                data.obras.forEach((obra, idxObra) => {
                     html += `
-                    <div style="border:1px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
+                    <div style="border:1px solid #cbd5e1; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
                             <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1e293b;">
                                 <span style="font-size:16px;">📍</span>
                                 <span>${obra.nombre}</span>
@@ -1144,22 +1155,60 @@
                                 ${obra.activos} Activos / ${obra.total} Total
                             </span>
                         </div>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; flex-direction:column; gap:8px;">
                             ${obra.trabajadores.length === 0 ? '<div style="font-size:12px; color:#94a3b8; font-style:italic;">Sin marcajes hoy</div>' : ''}
-                            ${obra.trabajadores.map(t => `
-                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
-                                    <div style="display:flex; align-items:center; gap:10px; color:#1e293b; font-weight:600;">
-                                        <span style="color:#6366f1; font-size:15px;">👤</span>
-                                        <span>${t.nombre}</span>
+                            ${obra.trabajadores.map((t, idxTrab) => {
+                                const idHist = `hist_admin_${idxObra}_${idxTrab}`;
+                                const esActivo = (t.estado === 'ACTIVO');
+                                const act = t.actividad_actual;
+                                const totalActs = t.total_actividades || 0;
+
+                                return `
+                                <div style="background:${esActivo ? '#ffffff' : '#f8fafc'}; border:1px solid ${esActivo ? '#e2e8f0' : '#f1f5f9'}; border-radius:10px; padding:8px 10px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                                        <div style="display:flex; align-items:center; gap:8px; color:#1e293b; font-weight:600;">
+                                            <span style="color:#6366f1; font-size:15px;">👤</span>
+                                            <span>${t.nombre}</span>
+                                        </div>
+                                        <span style="${esActivo 
+                                            ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
+                                            : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
+                                            font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px;">
+                                            ${t.estado}
+                                        </span>
                                     </div>
-                                    <span style="${t.estado === 'ACTIVO' 
-                                        ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
-                                        : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
-                                        font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px;">
-                                        ${t.estado}
-                                    </span>
+                                    <div style="margin-top:4px; font-size:12px;">
+                                        ${act ? `
+                                        <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; padding:2px 8px; border-radius:6px; font-size:11px; display:inline-flex; align-items:center; gap:4px;">
+                                            <span>📍 ${act.piso}</span>
+                                            <span>•</span>
+                                            <span>🔨 ${act.actividad}</span>
+                                            <span style="color:#0284c7; font-weight:500; font-size:10px;">(${act.hora_inicio ? act.hora_inicio.slice(0,5) : ''})</span>
+                                        </span>
+                                        ` : `
+                                        <span style="color:#94a3b8; font-size:11px; font-style:italic;">⚪ Sin tarea asignada</span>
+                                        `}
+
+                                        ${totalActs > 1 ? `
+                                        <button type="button" onclick="const el=document.getElementById('${idHist}'); el.style.display=el.style.display==='none'?'block':'none';" style="background:none; border:none; color:#6366f1; font-size:11px; font-weight:700; text-decoration:underline; cursor:pointer; padding:0; margin-left:6px;">
+                                            📜 ${totalActs} tareas
+                                        </button>
+                                        ` : ''}
+                                    </div>
+
+                                    ${totalActs > 1 ? `
+                                    <div id="${idHist}" style="display:none; margin-top:6px; padding:6px 8px; background:#f8fafc; border-radius:6px; border:1px dashed #cbd5e1; font-size:11px;">
+                                        ${t.actividades.map((a, i) => `
+                                            <div style="display:flex; justify-content:space-between; padding:2px 0; color:#334155;">
+                                                <span><b>${i+1}.</b> ${a.piso} — ${a.actividad}</span>
+                                                <span style="color:#64748b;">${a.hora_inicio.slice(0,5)} ${a.hora_fin ? 'a ' + a.hora_fin.slice(0,5) : '(Actual)'}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    ` : ''}
                                 </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>`;
                 });

@@ -1040,6 +1040,11 @@
             }
         }
 
+        // ================= GESTIÓN DE TAREAS Y ACTIVIDADES (FOREMAN) =================
+        let seleccionCuadrilla = {}; // obra -> Set de nombres
+        let asignarObraNombre = "";
+        let asignarTrabajadores = [];
+
         async function abrirModalResumenDia() {
             const modal = document.getElementById('modalResumenDia');
             const lista = document.getElementById('resumenListaObras');
@@ -1047,6 +1052,7 @@
             modal.classList.remove('hidden');
             modal.style.display = 'flex';
             lista.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b;">⏳ Cargando personal en obra...</div>';
+            seleccionCuadrilla = {};
 
             try {
                 const resp = await fetch('/api/resumen_dia');
@@ -1059,10 +1065,16 @@
                 }
 
                 let html = '';
-                data.obras.forEach(obra => {
+                data.obras.forEach((obra, idxObra) => {
+                    const idObraSafe = `obra_${idxObra}`;
+                    seleccionCuadrilla[obra.nombre] = new Set();
+                    const activosCount = obra.trabajadores.filter(t => t.estado === 'ACTIVO').length;
+
                     html += `
-                    <div style="border:1px solid #e2e8f0; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
+                    <div style="border:1px solid #cbd5e1; border-radius:14px; padding:14px; background:#ffffff; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                        
+                        <!-- Cabecera de la Obra -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #f1f5f9;">
                             <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1e293b;">
                                 <span style="font-size:16px;">📍</span>
                                 <span>${obra.nombre}</span>
@@ -1071,28 +1083,226 @@
                                 ${obra.activos} Activos / ${obra.total} Total
                             </span>
                         </div>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
+
+                        <!-- Barra de Cuadrilla / Selección Múltiple -->
+                        ${activosCount > 0 ? `
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; margin-bottom:10px;">
+                            <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#475569; cursor:pointer;">
+                                <input type="checkbox" onchange="toggleSeleccionarTodosObra('${obra.nombre}', this.checked)" id="chkAll_${idObraSafe}" style="width:16px; height:16px; cursor:pointer;">
+                                <span>Seleccionar Cuadrilla</span>
+                            </label>
+                            <button type="button" id="btnAsignarLote_${idObraSafe}" onclick="abrirModalAsignarLote('${obra.nombre}')" class="hidden" style="background:#2563eb; color:white; border:none; border-radius:6px; padding:5px 10px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
+                                ⚡ Asignar Tarea (<span id="countSel_${idObraSafe}">0</span>)
+                            </button>
+                        </div>
+                        ` : ''}
+
+                        <!-- Lista de Trabajadores -->
+                        <div style="display:flex; flex-direction:column; gap:8px;">
                             ${obra.trabajadores.length === 0 ? '<div style="font-size:12px; color:#94a3b8; font-style:italic;">Sin marcajes hoy</div>' : ''}
-                            ${obra.trabajadores.map(t => `
-                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
-                                    <div style="display:flex; align-items:center; gap:10px; color:#1e293b; font-weight:600;">
-                                        <span style="color:#6366f1; font-size:15px;">👤</span>
-                                        <span>${t.nombre}</span>
+                            ${obra.trabajadores.map((t, idxTrab) => {
+                                const idHist = `hist_${idxObra}_${idxTrab}`;
+                                const esActivo = (t.estado === 'ACTIVO');
+                                const act = t.actividad_actual;
+                                const totalActs = t.total_actividades || 0;
+                                const nombreEsc = t.nombre.replace(/'/g, "\\'");
+
+                                return `
+                                <div style="background:${esActivo ? '#ffffff' : '#f8fafc'}; border:1px solid ${esActivo ? '#e2e8f0' : '#f1f5f9'}; border-radius:10px; padding:8px 10px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
+                                        <div style="display:flex; align-items:center; gap:8px; color:#1e293b; font-weight:600; min-width:0;">
+                                            ${esActivo ? `
+                                            <input type="checkbox" class="chk-trab-${idObraSafe}" data-nombre="${t.nombre}" onchange="actualizarSeleccionTrabajador('${obra.nombre}', '${nombreEsc}', this.checked)" style="width:16px; height:16px; cursor:pointer; accent-color:#2563eb;">
+                                            ` : '<span style="width:16px; display:inline-block;"></span>'}
+                                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.nombre}</span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="${esActivo 
+                                                ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
+                                                : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
+                                                font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; letter-spacing:0.3px;">
+                                                ${t.estado}
+                                            </span>
+                                            ${esActivo ? `
+                                            <button type="button" onclick="abrirModalAsignar('${obra.nombre}', ['${nombreEsc}'])" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; cursor:pointer;" title="Asignar o cambiar piso y tarea">
+                                                ✏️ Tarea
+                                            </button>
+                                            ` : ''}
+                                        </div>
                                     </div>
-                                    <span style="${t.estado === 'ACTIVO' 
-                                        ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
-                                        : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
-                                        font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px;">
-                                        ${t.estado}
-                                    </span>
+
+                                    <!-- Estado de Actividad Actual -->
+                                    <div style="margin-top:6px; padding-left:${esActivo ? '24px' : '0'}; display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px;">
+                                        ${act ? `
+                                        <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; padding:2px 8px; border-radius:6px; font-size:11px; display:inline-flex; align-items:center; gap:4px;">
+                                            <span>📍 ${act.piso}</span>
+                                            <span>•</span>
+                                            <span>🔨 ${act.actividad}</span>
+                                            <span style="color:#0284c7; font-weight:500; font-size:10px;">(${act.hora_inicio ? act.hora_inicio.slice(0,5) : ''})</span>
+                                        </span>
+                                        ` : `
+                                        <span style="color:#94a3b8; font-size:11px; font-style:italic;">
+                                            ⚪ Sin piso/actividad asignada
+                                        </span>
+                                        `}
+
+                                        ${totalActs > 1 ? `
+                                        <button type="button" onclick="toggleElemento('${idHist}')" style="background:none; border:none; color:#6366f1; font-size:11px; font-weight:700; text-decoration:underline; cursor:pointer; padding:0;">
+                                            📜 Ver ${totalActs} actividades hoy
+                                        </button>
+                                        ` : ''}
+                                    </div>
+
+                                    <!-- Historial Desplegable del Día -->
+                                    ${totalActs > 1 ? `
+                                    <div id="${idHist}" class="hidden" style="margin-top:8px; padding:8px 10px; background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1; font-size:11px;">
+                                        <div style="font-weight:700; color:#475569; margin-bottom:4px;">Cronograma de Actividades Hoy:</div>
+                                        ${t.actividades.map((a, i) => `
+                                            <div style="display:flex; justify-content:space-between; padding:2px 0; color:#334155;">
+                                                <span><b>${i+1}.</b> ${a.piso} — ${a.actividad}</span>
+                                                <span style="color:#64748b;">${a.hora_inicio.slice(0,5)} ${a.hora_fin ? 'a ' + a.hora_fin.slice(0,5) : '(Actual)'}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    ` : ''}
+
                                 </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>`;
                 });
                 lista.innerHTML = html;
             } catch (e) {
                 lista.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444;">Error al cargar el resumen: ${e.message}</div>`;
+            }
+        }
+
+        function toggleElemento(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden');
+        }
+
+        function toggleSeleccionarTodosObra(obraNombre, marcado) {
+            const index = Object.keys(seleccionCuadrilla).indexOf(obraNombre);
+            const idObraSafe = `obra_${index}`;
+            const checkboxes = document.querySelectorAll(`.chk-trab-${idObraSafe}`);
+            
+            seleccionCuadrilla[obraNombre] = new Set();
+            checkboxes.forEach(cb => {
+                cb.checked = marcado;
+                if (marcado) {
+                    seleccionCuadrilla[obraNombre].add(cb.getAttribute('data-nombre'));
+                }
+            });
+            refrescarBarraLote(obraNombre, idObraSafe);
+        }
+
+        function actualizarSeleccionTrabajador(obraNombre, empNombre, marcado) {
+            if (!seleccionCuadrilla[obraNombre]) seleccionCuadrilla[obraNombre] = new Set();
+            if (marcado) {
+                seleccionCuadrilla[obraNombre].add(empNombre);
+            } else {
+                seleccionCuadrilla[obraNombre].delete(empNombre);
+            }
+            const index = Object.keys(seleccionCuadrilla).indexOf(obraNombre);
+            const idObraSafe = `obra_${index}`;
+            refrescarBarraLote(obraNombre, idObraSafe);
+        }
+
+        function refrescarBarraLote(obraNombre, idObraSafe) {
+            const set = seleccionCuadrilla[obraNombre];
+            const btn = document.getElementById(`btnAsignarLote_${idObraSafe}`);
+            const count = document.getElementById(`countSel_${idObraSafe}`);
+            if (!btn || !count) return;
+
+            if (set && set.size > 0) {
+                count.innerText = set.size;
+                btn.classList.remove('hidden');
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.classList.add('hidden');
+                btn.style.display = 'none';
+            }
+        }
+
+        function abrirModalAsignarLote(obraNombre) {
+            const set = seleccionCuadrilla[obraNombre];
+            if (!set || set.size === 0) {
+                alert("Selecciona al menos un trabajador para asignar en lote.");
+                return;
+            }
+            abrirModalAsignar(obraNombre, Array.from(set));
+        }
+
+        function abrirModalAsignar(obraNombre, listaNombres) {
+            asignarObraNombre = obraNombre;
+            asignarTrabajadores = listaNombres;
+
+            document.getElementById('asigObraTitulo').innerText = obraNombre;
+            document.getElementById('asigTrabajadoresCount').innerText = `${listaNombres.length} trabajador(es)`;
+            document.getElementById('asigListaNombres').innerText = listaNombres.join(", ");
+
+            document.getElementById('asigPisoCustom').value = '';
+            document.getElementById('asigActividadCustom').value = '';
+
+            const modal = document.getElementById('modalAsignarTarea');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+
+        function cerrarModalAsignar() {
+            const modal = document.getElementById('modalAsignarTarea');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
+
+        async function guardarAsignacionTarea() {
+            const selPiso = document.getElementById('asigPiso').value;
+            const customPiso = document.getElementById('asigPisoCustom').value.trim();
+            const pisoFinal = customPiso || selPiso;
+
+            const selActividad = document.getElementById('asigActividad').value;
+            const customActividad = document.getElementById('asigActividadCustom').value.trim();
+            const actividadFinal = customActividad || selActividad;
+
+            if (!pisoFinal) {
+                alert("Por favor selecciona o escribe el piso.");
+                return;
+            }
+            if (!actividadFinal) {
+                alert("Por favor selecciona o escribe la actividad.");
+                return;
+            }
+
+            const btn = document.getElementById('btnConfirmarAsignacion');
+            btn.disabled = true;
+            btn.innerText = "Guardando...";
+
+            try {
+                const res = await fetch('/api/actividades/asignar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        empleados: asignarTrabajadores,
+                        proyecto_nombre: asignarObraNombre,
+                        piso: pisoFinal,
+                        actividad: actividadFinal,
+                        asignado_por: (typeof perfilActual !== 'undefined' && perfilActual && perfilActual.nombre) ? perfilActual.nombre : 'Foreman'
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    cerrarModalAsignar();
+                    await abrirModalResumenDia();
+                } else {
+                    alert("Error guardando tarea: " + (data.detail || data.error));
+                }
+            } catch (e) {
+                alert("Error de conexión al guardar tarea.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "💾 Guardar Asignación";
             }
         }
 
@@ -1145,6 +1355,91 @@
             <div style="padding:12px 16px 20px 16px; background:#ffffff; border-top:1px solid #f1f5f9;">
                 <button type="button" onclick="cerrarModalResumenDia()" style="width:100%; height:46px; background:#334155; color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; font-family:system-ui, sans-serif;">
                     Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA ASIGNAR PISO Y ACTIVIDAD (INDIVIDUAL O CUADRILLA) -->
+    <div id="modalAsignarTarea" class="modal hidden" style="align-items:center; justify-content:center; padding:16px; z-index:2100; background:rgba(15,23,42,0.88);">
+        <div style="background:#ffffff; color:#1e293b; border-radius:16px; width:100%; max-width:440px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.5); overflow:hidden;">
+            
+            <!-- Header -->
+            <div style="padding:14px 18px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:20px;">⚡</span>
+                    <div>
+                        <h4 style="margin:0; font-size:16px; font-weight:800; color:#1e293b;">Asignar Piso & Actividad</h4>
+                        <div id="asigObraTitulo" style="font-size:12px; color:#64748b; font-weight:600;">Obra</div>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalAsignar()" style="background:#f1f5f9; border:none; border-radius:50%; width:28px; height:28px; font-weight:bold; cursor:pointer; color:#64748b;">✕</button>
+            </div>
+
+            <!-- Cuerpo Formulario -->
+            <div style="padding:16px 18px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
+                
+                <!-- Destinatarios -->
+                <div style="background:#f1f5f9; border-radius:10px; padding:10px 12px; border:1px solid #e2e8f0;">
+                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase;">Asignando a: <span id="asigTrabajadoresCount" style="color:#2563eb;"></span></div>
+                    <div id="asigListaNombres" style="font-size:13px; font-weight:600; color:#1e293b; margin-top:4px; max-height:48px; overflow-y:auto; line-height:1.3;"></div>
+                </div>
+
+                <!-- Selección de Piso -->
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:4px; display:block;">
+                        📍 Piso o Nivel:
+                    </label>
+                    <select id="asigPiso" style="width:100%; height:40px; border-radius:8px; border:1px solid #cbd5e1; padding:0 10px; font-size:14px; background:#ffffff; color:#1e293b; font-weight:600;">
+                        <option value="Sótano 2">Sótano 2</option>
+                        <option value="Sótano 1">Sótano 1</option>
+                        <option value="Piso 1" selected>Piso 1</option>
+                        <option value="Piso 2">Piso 2</option>
+                        <option value="Piso 3">Piso 3</option>
+                        <option value="Piso 4">Piso 4</option>
+                        <option value="Piso 5">Piso 5</option>
+                        <option value="Piso 6">Piso 6</option>
+                        <option value="Piso 7">Piso 7</option>
+                        <option value="Piso 8">Piso 8</option>
+                        <option value="Piso 9">Piso 9</option>
+                        <option value="Piso 10">Piso 10</option>
+                        <option value="Azotea / Techo">Azotea / Techo</option>
+                        <option value="Exterior / Fachada">Exterior / Fachada</option>
+                    </select>
+                    <input type="text" id="asigPisoCustom" placeholder="O escribe otro piso personalizado..." style="margin-top:6px; width:100%; box-sizing:border-box; height:36px; border-radius:8px; border:1px dashed #94a3b8; padding:0 10px; font-size:13px; background:#f8fafc;">
+                </div>
+
+                <!-- Selección de Actividad -->
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:#334155; margin-bottom:4px; display:block;">
+                        🔨 Actividad / Labor:
+                    </label>
+                    <select id="asigActividad" style="width:100%; height:40px; border-radius:8px; border:1px solid #cbd5e1; padding:0 10px; font-size:14px; background:#ffffff; color:#1e293b; font-weight:600;">
+                        <option value="Encofrado" selected>Encofrado</option>
+                        <option value="Fierrería / Acero">Fierrería / Acero</option>
+                        <option value="Vaciado de Concreto">Vaciado de Concreto</option>
+                        <option value="Drywall">Drywall</option>
+                        <option value="Albañilería / Muros">Albañilería / Muros</option>
+                        <option value="Pintura">Pintura</option>
+                        <option value="Instalaciones Eléctricas">Instalaciones Eléctricas</option>
+                        <option value="Instalaciones Sanitarias">Instalaciones Sanitarias</option>
+                        <option value="Limpieza General">Limpieza General</option>
+                        <option value="Acabados / Enchapes">Acabados / Enchapes</option>
+                        <option value="Demolición">Demolición</option>
+                        <option value="Ayudantía General">Ayudantía General</option>
+                    </select>
+                    <input type="text" id="asigActividadCustom" placeholder="O escribe otra actividad personalizada..." style="margin-top:6px; width:100%; box-sizing:border-box; height:36px; border-radius:8px; border:1px dashed #94a3b8; padding:0 10px; font-size:13px; background:#f8fafc;">
+                </div>
+
+            </div>
+
+            <!-- Footer Botones -->
+            <div style="padding:12px 18px; border-top:1px solid #f1f5f9; display:flex; gap:10px;">
+                <button type="button" onclick="cerrarModalAsignar()" style="flex:1; height:42px; background:#f1f5f9; color:#475569; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="button" id="btnConfirmarAsignacion" onclick="guardarAsignacionTarea()" style="flex:2; height:42px; background:#2563eb; color:white; border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 4px 6px rgba(37,99,235,0.25);">
+                    💾 Guardar Asignación
                 </button>
             </div>
         </div>

@@ -74,6 +74,24 @@ def init_db():
     )
     """)
 
+    # Tabla de Actividades Diarias (Asignación de Pisos y Tareas por Foreman)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS actividades_diarias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL,
+        empleado_nombre TEXT NOT NULL,
+        proyecto_nombre TEXT NOT NULL,
+        piso TEXT NOT NULL,
+        actividad TEXT NOT NULL,
+        hora_inicio TEXT NOT NULL,
+        hora_fin TEXT,
+        asignado_por TEXT DEFAULT 'Foreman',
+        notas TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_actividades_fecha_emp ON actividades_diarias(fecha, empleado_nombre)")
+
     # Insertar proyectos iniciales si está vacío
     cursor.execute("SELECT COUNT(*) as count FROM proyectos")
     if cursor.fetchone()["count"] == 0:
@@ -362,7 +380,30 @@ def obtener_resumen_dia_foreman():
     # Proyectos registrados
     cursor.execute("SELECT nombre FROM proyectos WHERE activo = 1 ORDER BY nombre ASC")
     proyectos = [p["nombre"] for p in cursor.fetchall()]
+
+    # Actividades asignadas hoy agrupadas por empleado
+    cursor.execute("""
+        SELECT id, fecha, empleado_nombre, proyecto_nombre, piso, actividad, hora_inicio, hora_fin, asignado_por
+        FROM actividades_diarias
+        WHERE fecha = ?
+        ORDER BY id ASC
+    """, (hoy,))
+    actividades_hoy = cursor.fetchall()
     conn.close()
+
+    acts_por_emp = {}
+    for a in actividades_hoy:
+        emp = a["empleado_nombre"]
+        if emp not in acts_por_emp:
+            acts_por_emp[emp] = []
+        acts_por_emp[emp].append({
+            "id": a["id"],
+            "piso": a["piso"],
+            "actividad": a["actividad"],
+            "hora_inicio": a["hora_inicio"],
+            "hora_fin": a["hora_fin"],
+            "asignado_por": a["asignado_por"]
+        })
 
     obras_dict = {}
     for p in proyectos:
@@ -385,9 +426,15 @@ def obtener_resumen_dia_foreman():
         obras_dict[p_nom]["total"] += 1
         gran_total_general += 1
 
+        emp_acts = acts_por_emp.get(f["empleado_nombre"], [])
+        act_actual = emp_acts[-1] if emp_acts else None
+
         obras_dict[p_nom]["trabajadores"].append({
             "nombre": f["empleado_nombre"],
-            "estado": estado_label
+            "estado": estado_label,
+            "actividad_actual": act_actual,
+            "total_actividades": len(emp_acts),
+            "actividades": emp_acts
         })
 
     # Filtrar solo obras con trabajadores hoy (o todas si no hay ninguno)
@@ -402,3 +449,180 @@ def obtener_resumen_dia_foreman():
         "gran_total_general": gran_total_general,
         "obras": obras_lista
     }
+
+# ----------------- OPERACIONES DE ACTIVIDADES EN OBRA -----------------
+
+def asignar_actividad_empleados(empleados_nombres, proyecto_nombre, piso, actividad, asignado_por="Foreman", hora_personalizada=None, notas=""):
+    """
+    Asigna piso y actividad a uno o varios trabajadores (cuadrilla).
+    Cierra automáticamente la tarea anterior del día colocando su hora_fin.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    ahora = datetime.now()
+    fecha_hoy = ahora.strftime("%Y-%m-%d")
+    hora_str = hora_personalizada or ahora.strftime("%H:%M:%S")
+
+    for emp in empleados_nombres:
+        emp_clean = emp.strip()
+        if not emp_clean:
+            continue
+        
+        # 1. Cerrar tarea anterior abierta de hoy
+        cursor.execute("""
+            UPDATE actividades_diarias
+            SET hora_fin = ?
+            WHERE fecha = ? AND empleado_nombre = ? AND (hora_fin IS NULL OR hora_fin = '')
+        """, (hora_str, fecha_hoy, emp_clean))
+
+        # 2. Insertar nueva actividad
+        cursor.execute("""
+            INSERT INTO actividades_diarias (
+                fecha, empleado_nombre, proyecto_nombre, piso, actividad,
+                hora_inicio, hora_fin, asignado_por, notas
+            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        """, (fecha_hoy, emp_clean, proyecto_nombre, piso, actividad, hora_str, asignado_por, notas))
+
+    conn.commit()
+    conn.close()
+    return True
+
+def cerrar_actividades_abiertas_empleado(empleado_nombre, hora_cierre=None, fecha=None):
+    """
+    Al registrar SALIDA, cierra la última tarea que el trabajador tenía abierta en el día.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    ahora = datetime.now()
+    fecha_hoy = fecha or ahora.strftime("%Y-%m-%d")
+    
+    if hora_cierre:
+        if "T" in str(hora_cierre):
+            hora_str = str(hora_cierre).split("T")[1][:8]
+        elif " " in str(hora_cierre):
+            hora_str = str(hora_cierre).split(" ")[1][:8]
+        else:
+            hora_str = str(hora_cierre)[:8]
+    else:
+        hora_str = ahora.strftime("%H:%M:%S")
+
+    cursor.execute("""
+        UPDATE actividades_diarias
+        SET hora_fin = ?
+        WHERE fecha = ? AND empleado_nombre = ? AND (hora_fin IS NULL OR hora_fin = '')
+    """, (hora_str, fecha_hoy, empleado_nombre))
+    conn.commit()
+    conn.close()
+
+def calcular_horas_entre(hora_inicio, hora_fin):
+    try:
+        h1 = hora_inicio.strip()[:8]
+        h2 = hora_fin.strip()[:8]
+        fmt1 = "%H:%M:%S" if len(h1) == 8 else "%H:%M"
+        fmt2 = "%H:%M:%S" if len(h2) == 8 else "%H:%M"
+        t1 = datetime.strptime(h1, fmt1)
+        t2 = datetime.strptime(h2, fmt2)
+        diff = (t2 - t1).total_seconds() / 3600.0
+        return round(max(0.0, diff), 2)
+    except Exception:
+        return 0.0
+
+def obtener_reporte_actividades_costos(fecha_inicio=None, fecha_fin=None, proyecto_nombre=None):
+    """
+    Genera el reporte detallado donde CADA actividad realizada por una persona
+    es UNA FILA independiente con su Piso, Actividad, Hora Inicio, Hora Fin y Duración en Horas.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT 
+            a.id,
+            a.fecha,
+            a.empleado_nombre,
+            a.proyecto_nombre,
+            a.piso,
+            a.actividad,
+            a.hora_inicio,
+            a.hora_fin,
+            a.asignado_por,
+            a.notas
+        FROM actividades_diarias a
+        WHERE 1=1
+    """
+    params = []
+    if fecha_inicio and fecha_fin:
+        query += " AND a.fecha BETWEEN ? AND ?"
+        params.extend([fecha_inicio, fecha_fin])
+    elif fecha_inicio:
+        query += " AND a.fecha = ?"
+        params.append(fecha_inicio)
+
+    if proyecto_nombre and proyecto_nombre != "TODOS":
+        query += " AND a.proyecto_nombre = ?"
+        params.append(proyecto_nombre)
+
+    query += " ORDER BY a.fecha DESC, a.proyecto_nombre ASC, a.empleado_nombre ASC, a.id ASC"
+    cursor.execute(query, params)
+    filas = cursor.fetchall()
+
+    # Obtener entradas y salidas generales de marcajes para cruzar
+    cursor.execute("""
+        SELECT empleado_nombre, tipo, timestamp_local
+        FROM marcajes
+        ORDER BY id ASC
+    """)
+    marcajes = cursor.fetchall()
+    conn.close()
+
+    horarios_obra = {}
+    for m in marcajes:
+        try:
+            f_str = m["timestamp_local"][:10]
+            h_str = m["timestamp_local"][11:19]
+            clave = (f_str, m["empleado_nombre"])
+            if clave not in horarios_obra:
+                horarios_obra[clave] = {"entrada": None, "salida": None}
+            if m["tipo"] == "ENTRADA" and not horarios_obra[clave]["entrada"]:
+                horarios_obra[clave]["entrada"] = h_str
+            elif m["tipo"] == "SALIDA":
+                horarios_obra[clave]["salida"] = h_str
+        except Exception:
+            pass
+
+    reporte = []
+    ahora_hora = datetime.now().strftime("%H:%M:%S")
+    hoy_str = datetime.now().strftime("%Y-%m-%d")
+
+    for f in filas:
+        h_ini = f["hora_inicio"]
+        h_fin = f["hora_fin"]
+        horas_calc = 0.0
+
+        if h_fin:
+            horas_calc = calcular_horas_entre(h_ini, h_fin)
+            h_fin_str = h_fin
+        elif f["fecha"] == hoy_str:
+            horas_calc = calcular_horas_entre(h_ini, ahora_hora)
+            h_fin_str = f"{ahora_hora} (En curso)"
+        else:
+            h_fin_str = "Sin cierre"
+
+        clave_emp = (f["fecha"], f["empleado_nombre"])
+        info_obra = horarios_obra.get(clave_emp, {"entrada": "N/R", "salida": "N/R"})
+
+        reporte.append({
+            "id": f["id"],
+            "fecha": f["fecha"],
+            "empleado_nombre": f["empleado_nombre"],
+            "proyecto_nombre": f["proyecto_nombre"],
+            "piso": f["piso"],
+            "actividad": f["actividad"],
+            "hora_inicio": h_ini,
+            "hora_fin": h_fin_str,
+            "horas_dedicadas": horas_calc,
+            "asignado_por": f["asignado_por"] or "Foreman",
+            "entrada_general": info_obra.get("entrada") or "N/R",
+            "salida_general": info_obra.get("salida") or "N/R"
+        })
+
+    return reporte
