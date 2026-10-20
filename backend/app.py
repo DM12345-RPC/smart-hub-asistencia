@@ -423,6 +423,17 @@ def procesar_un_marcaje(payload: dict) -> dict:
         except Exception as e:
             print("Error cerrando actividad abierta:", e)
 
+    # Respaldo automático de la foto en Google Drive en segundo plano
+    if nombre_archivo_foto and ruta_completa and os.path.exists(ruta_completa):
+        try:
+            from backend.gdrive import subir_foto_async
+            fecha_hora_str = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            nombre_limpio_emp = nombre.replace(" ", "_")
+            nombre_foto_drive = f"{fecha_hora_str}_{tipo}_{proy_nombre}_{nombre_limpio_emp}.jpg"
+            subir_foto_async(ruta_completa, nombre_foto_drive)
+        except Exception as e_gdrive:
+            print("Aviso: no se pudo iniciar subida a Google Drive:", e_gdrive)
+
     return {
         "status": "ok",
         "marcaje_id": marcaje_id,
@@ -615,3 +626,30 @@ def servir_perfil(nombre_archivo: str):
     if os.path.exists(ruta):
         return FileResponse(ruta)
     raise HTTPException(status_code=404, detail="Foto de perfil no encontrada")
+
+
+# Endpoints de Respaldo en Google Drive
+@app.post("/api/gdrive/respaldar")
+def api_gdrive_respaldar():
+    """Ejecuta un respaldo inmediato de la base de datos sqlite en Google Drive."""
+    try:
+        from backend.gdrive import realizar_respaldo_completo
+        res = realizar_respaldo_completo()
+        return res
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.get("/api/gdrive/status")
+def api_gdrive_status():
+    """Verifica si Google Drive está conectado correctamente."""
+    try:
+        from backend.gdrive import obtener_servicio_drive, GDRIVE_FOLDER_ID
+        srv = obtener_servicio_drive()
+        return {
+            "status": "ok" if srv else "error",
+            "conectado": srv is not None,
+            "carpeta_id": GDRIVE_FOLDER_ID
+        }
+    except Exception as e:
+        return {"status": "error", "conectado": False, "error": str(e)}

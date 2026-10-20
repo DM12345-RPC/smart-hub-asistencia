@@ -425,6 +425,9 @@
                     </button>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button onclick="respaldarGoogleDrive()" id="btnGDriveBackup" class="btn" style="background:#4f46e5; font-weight:700;" title="Sube una copia completa de la base de datos a Google Drive">
+                        ☁️ Respaldar en Drive
+                    </button>
                     <button onclick="exportarExcelActividades()" class="btn" style="background:#2563eb; font-weight:700;" title="Descarga reporte donde cada actividad ejecutada es 1 fila independiente con sus horas y piso para liquidación de nómina">
                         💰 Excel Actividades y Costos (.CSV)
                     </button>
@@ -502,10 +505,6 @@
                                     <option value="">Todas</option>
                                     <option value="90">≥ 90%</option>
                                     <option value="80">≥ 80%</option>
-                                    <option value="70">≥ 70%</option>
-                                    <option value="baja">< 70%</option>
-                                </select>
-                            </th>
                                     <option value="70">≥ 70%</option>
                                     <option value="baja">< 70%</option>
                                 </select>
@@ -1381,6 +1380,28 @@
             window.location.href = url;
         }
 
+        async function respaldarGoogleDrive() {
+            const btn = document.getElementById('btnGDriveBackup');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Subiendo a Drive...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/gdrive/respaldar', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert(`✅ ¡Copia de seguridad guardada con éxito en Google Drive!\nArchivo: ${data.name}`);
+                } else {
+                    alert('Aviso Google Drive: ' + (data.error || 'No se pudo completar el respaldo.'));
+                }
+            } catch (e) {
+                alert('Error al contactar con el servidor para respaldo en Drive.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
         async function abrirResumenModalAdmin() {
             const modal = document.getElementById('modalResumenDiaAdmin');
             const lista = document.getElementById('resumenListaObrasAdmin');
@@ -1423,18 +1444,22 @@
                                 return `
                                 <div style="background:${esActivo ? '#ffffff' : '#f8fafc'}; border:1px solid ${esActivo ? '#e2e8f0' : '#f1f5f9'}; border-radius:10px; padding:8px 10px;">
                                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px;">
-                                        <div style="display:flex; align-items:center; gap:8px; color:#1e293b; font-weight:600;">
-                                            <span style="color:#6366f1; font-size:15px;">👤</span>
-                                            <span>${t.nombre}</span>
+                                        <div style="display:flex; align-items:center; gap:8px; color:#1e293b; font-weight:600; min-width:0;">
+                                            <img src="${t.foto_path || '/static/icon.png'}" 
+                                                 alt="${t.nombre}" 
+                                                 onclick="window.open('${t.foto_path || '/static/icon.png'}', '_blank')" 
+                                                 title="Click para ver foto de ingreso"
+                                                 style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:2px solid #cbd5e1; cursor:pointer; flex-shrink:0; background:#f1f5f9;">
+                                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.nombre}</span>
                                         </div>
                                         <span style="${esActivo 
                                             ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
                                             : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
-                                            font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px;">
+                                            font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px; flex-shrink:0;">
                                             ${t.estado}
                                         </span>
                                     </div>
-                                    <div style="margin-top:4px; font-size:12px;">
+                                    <div style="margin-top:4px; padding-left:42px; font-size:12px;">
                                         ${act ? `
                                         <span style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; padding:2px 8px; border-radius:6px; font-size:11px; display:inline-flex; align-items:center; gap:4px;">
                                             <span>📍 ${act.piso}</span>

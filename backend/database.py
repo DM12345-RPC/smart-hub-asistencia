@@ -426,7 +426,7 @@ def obtener_resumen_dia_foreman():
     cursor = conn.cursor()
     hoy = datetime.now().strftime("%Y-%m-%d")
 
-    # Obtener el último marcaje de cada trabajador hoy
+    # Obtener el último marcaje de cada trabajador hoy y su foto de ingreso
     query = """
     WITH ultimos AS (
         SELECT 
@@ -434,23 +434,39 @@ def obtener_resumen_dia_foreman():
             m.tipo,
             m.proyecto_nombre,
             m.timestamp_local,
+            m.foto_path,
             ROW_NUMBER() OVER (
                 PARTITION BY m.empleado_nombre 
                 ORDER BY m.id DESC
             ) as rn
         FROM marcajes m
         WHERE m.timestamp_local LIKE ? OR m.timestamp_servidor LIKE ?
+    ),
+    entradas_fotos AS (
+        SELECT 
+            m.empleado_nombre,
+            m.foto_path as foto_ingreso,
+            ROW_NUMBER() OVER (
+                PARTITION BY m.empleado_nombre 
+                ORDER BY m.id ASC
+            ) as rn_in
+        FROM marcajes m
+        WHERE (m.timestamp_local LIKE ? OR m.timestamp_servidor LIKE ?)
+          AND m.tipo = 'ENTRADA'
+          AND m.foto_path IS NOT NULL AND m.foto_path != ''
     )
     SELECT 
-        empleado_nombre,
-        tipo,
-        proyecto_nombre,
-        timestamp_local
-    FROM ultimos
-    WHERE rn = 1
-    ORDER BY proyecto_nombre ASC, empleado_nombre ASC
+        u.empleado_nombre,
+        u.tipo,
+        u.proyecto_nombre,
+        u.timestamp_local,
+        COALESCE(ef.foto_ingreso, u.foto_path) as foto_path
+    FROM ultimos u
+    LEFT JOIN entradas_fotos ef ON u.empleado_nombre = ef.empleado_nombre AND ef.rn_in = 1
+    WHERE u.rn = 1
+    ORDER BY u.proyecto_nombre ASC, u.empleado_nombre ASC
     """
-    cursor.execute(query, (f"{hoy}%", f"{hoy}%"))
+    cursor.execute(query, (f"{hoy}%", f"{hoy}%", f"{hoy}%", f"{hoy}%"))
     filas = cursor.fetchall()
 
     # Proyectos registrados
@@ -508,6 +524,7 @@ def obtener_resumen_dia_foreman():
         obras_dict[p_nom]["trabajadores"].append({
             "nombre": f["empleado_nombre"],
             "estado": estado_label,
+            "foto_path": f["foto_path"],
             "actividad_actual": act_actual,
             "total_actividades": len(emp_acts),
             "actividades": emp_acts
