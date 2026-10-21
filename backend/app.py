@@ -57,15 +57,18 @@ PERSONAL_TXT_PATH = os.path.join(BASE_DIR, "personal.txt")
 os.makedirs(CAPTURAS_DIR, exist_ok=True)
 os.makedirs(PERFILES_DIR, exist_ok=True)
 
-# Restaurar base de datos maestra desde Google Drive al inicio si es un contenedor nuevo
+# Restaurar base de datos maestra desde Google Drive al inicio
 try:
     from .gdrive import restaurar_db_desde_drive_master, sincronizar_db_a_drive_master_async
     db_file = os.path.join(DATA_DIR, "asistencia.db")
-    if not os.path.exists(db_file) or os.path.getsize(db_file) < 4096:
-        print("[GDRIVE] Intentando restaurar base de datos maestra desde Google Drive...")
-        restaurar_db_desde_drive_master()
+    print("[GDRIVE] Sincronizando con Google Drive al inicio...")
+    restaurado = restaurar_db_desde_drive_master()
+    if restaurado:
+        print("[GDRIVE] ✅ Base de datos maestra sincronizada exitosamente desde Google Drive.")
+    else:
+        print("[GDRIVE] Info: Manteniendo base de datos existente o inicializando nueva.")
 except Exception as e:
-    print("[GDRIVE] Aviso: No se pudo verificar restauración en Drive:", e)
+    print("[GDRIVE] Aviso: No se pudo verificar sincronización en Drive:", e)
 
 # Iniciar Base de Datos y migraciones
 init_db()
@@ -773,6 +776,21 @@ def api_gdrive_respaldar():
         from backend.gdrive import realizar_respaldo_completo
         res = realizar_respaldo_completo()
         return res
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.post("/api/gdrive/restaurar")
+def api_gdrive_restaurar():
+    """Fuerza la descarga y restauración inmediata de la base de datos maestra desde Google Drive."""
+    try:
+        from backend.gdrive import restaurar_db_desde_drive_master
+        exito = restaurar_db_desde_drive_master()
+        if exito:
+            init_db()
+            return {"status": "ok", "mensaje": "Base de datos maestra restaurada exitosamente desde Google Drive."}
+        else:
+            return {"status": "error", "error": "No se encontró 'asistencia_master.db' en Google Drive o falló la conexión."}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 

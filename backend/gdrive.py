@@ -312,14 +312,24 @@ def restaurar_db_desde_drive_master(carpeta_id: str = None) -> bool:
                     _, done = downloader.next_chunk()
 
             if os.path.exists(temp_path) and os.path.getsize(temp_path) > 1024:
-                if os.path.exists(db_path):
-                    os.remove(db_path)
-                os.rename(temp_path, db_path)
-                logger.info(f"✅ Base de datos restaurada con éxito desde Google Drive ('asistencia_master.db', ID: {file_id}).")
-                return True
+                try:
+                    os.replace(temp_path, db_path)
+                    logger.info(f"✅ Base de datos restaurada con éxito desde Google Drive ('asistencia_master.db', ID: {file_id}).")
+                    return True
+                except Exception as e:
+                    logger.error(f"Error reemplazando archivo de base de datos con versión de Drive: {e}")
+                    if os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except Exception:
+                            pass
+                    return False
             else:
                 if os.path.exists(temp_path):
-                    os.remove(temp_path)
+                    try:
+                        os.remove(temp_path)
+                    except Exception:
+                        pass
                 return False
         except Exception as e:
             logger.error(f"❌ Error restaurando base de datos desde Google Drive: {e}")

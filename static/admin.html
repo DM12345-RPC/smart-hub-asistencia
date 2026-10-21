@@ -428,6 +428,9 @@
                     <button onclick="respaldarGoogleDrive()" id="btnGDriveBackup" class="btn" style="background:#4f46e5; font-weight:700;" title="Sube una copia completa de la base de datos a Google Drive">
                         ☁️ Respaldar en Drive
                     </button>
+                    <button onclick="restaurarGoogleDrive()" id="btnGDriveRestore" class="btn" style="background:#0284c7; font-weight:700;" title="Descarga y sincroniza la versión maestra de Google Drive">
+                        📥 Restaurar de Drive
+                    </button>
                     <button onclick="exportarExcelActividades()" class="btn" style="background:#2563eb; font-weight:700;" title="Descarga reporte donde cada actividad ejecutada es 1 fila independiente con sus horas y piso para liquidación de nómina">
                         💰 Excel Actividades y Costos (.CSV)
                     </button>
@@ -1755,6 +1758,35 @@
                 }
             } catch (e) {
                 alert('Error al contactar con el servidor para respaldo en Drive.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function restaurarGoogleDrive() {
+            if (!confirm('⚠️ ¿Deseas descargar y sincronizar la base de datos maestra desde Google Drive?\n\nEsto actualizará la vista con la versión oficial guardada en Drive.')) {
+                return;
+            }
+            const btn = document.getElementById('btnGDriveRestore');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Descargando de Drive...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/gdrive/restaurar', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert('✅ Base de datos maestra sincronizada exitosamente desde Google Drive.');
+                    await cargarMetricasDashboard();
+                    await cargarReportes(true);
+                    await cargarProyectos();
+                    await cargarEmpleados();
+                } else {
+                    alert('Aviso Google Drive: ' + (data.error || data.mensaje || 'No se pudo completar la restauración.'));
+                }
+            } catch (e) {
+                alert('Error al contactar con el servidor para restaurar desde Drive.');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
