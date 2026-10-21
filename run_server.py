@@ -2,6 +2,12 @@ import os
 import sys
 import uvicorn
 
+try:
+    if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+
 # Limitar hilos de computación para mantener la memoria RAM bajo 200MB en servidores gratuitos
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
