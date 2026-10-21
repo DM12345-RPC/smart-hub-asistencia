@@ -643,7 +643,12 @@
                     </div>
                     <div class="modal-info-item">
                         <div class="modal-info-label">Proyecto / Obra:</div>
-                        <div id="modProyecto" class="modal-info-val">-</div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                            <div id="modProyecto" class="modal-info-val">-</div>
+                            <button id="btnReasignarModal" type="button" class="btn btn-outline" style="padding:2px 8px; font-size:11px;" title="Cambiar la obra de este marcaje">
+                                ✏️ Reasignar
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-info-item">
                         <div class="modal-info-label">Coincidencia Facial IA:</div>
@@ -678,9 +683,12 @@
                 </div>
             </div>
 
-            <!-- Botón de Borrado en el Modal -->
-            <div style="margin-top:16px; display:flex; justify-content:flex-end;">
-                <button id="btnBorrarModal" class="btn btn-danger" style="font-size:13px;">
+            <!-- Botones de Acción en el Modal -->
+            <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+                <button id="btnReasignarModalFooter" type="button" class="btn btn-outline" style="font-size:12px; font-weight:700;">
+                    🔄 Reasignar Obra
+                </button>
+                <button id="btnBorrarModal" class="btn btn-danger" style="font-size:12px;">
                     🗑️ Eliminar este Marcaje
                 </button>
             </div>
@@ -755,6 +763,52 @@
                     <button type="button" class="btn btn-primary" onclick="guardarAsignacionObras()">💾 Guardar Asignación</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE REASIGNAR OBRA (ADMIN) -->
+    <div id="modalReasignarObra" class="modal hidden" onclick="cerrarModalReasignarFondo(event)">
+        <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin:0; font-size:18px;">🔄 Reasignar Obra / Proyecto</h3>
+                    <span style="font-size:12px; color:var(--text-sub);">Corrige la obra si el trabajador se equivocó al marcar</span>
+                </div>
+                <button class="close-btn" onclick="cerrarModalReasignar()">✕</button>
+            </div>
+            <form onsubmit="ejecutarReasignarObra(event)" style="display:flex; flex-direction:column; gap:16px; margin-top:10px;">
+                <input type="hidden" id="reasignarMarcajeId">
+                <div style="background:var(--filter-bg); border:1px solid var(--border); border-radius:10px; padding:12px;">
+                    <div style="font-size:13px; color:var(--text-sub); margin-bottom:4px;">Trabajador:</div>
+                    <div id="reasignarTrabajadorNombre" style="font-size:16px; font-weight:800; color:var(--text-main);">-</div>
+                    <div style="margin-top:8px; font-size:12px; color:var(--text-sub);">
+                        Obra registrada actualmente: <span id="reasignarObraActual" style="font-weight:700; color:#ef4444;">-</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:13px; font-weight:700; color:var(--text-main); margin-bottom:6px; display:block;">
+                        🏗️ Selecciona la Obra Correcta:
+                    </label>
+                    <select id="selectNuevaObra" required style="width:100%; box-sizing:border-box; padding:10px; font-size:14px; font-weight:600; border-radius:8px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main);">
+                        <!-- Llenado dinámicamente -->
+                    </select>
+                </div>
+
+                <div style="background:var(--tag-bg-blue); border:1px solid var(--border-blue); border-radius:8px; padding:10px;">
+                    <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--text-main); cursor:pointer; font-weight:600;">
+                        <input type="checkbox" id="chkReasignarTodosHoy" checked style="margin-top:2px; accent-color:#2563eb; width:16px; height:16px;">
+                        <span>Aplicar también a todas las marcaciones y asignaciones de tareas de hoy de este trabajador en esta obra.</span>
+                    </label>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalReasignar()">Cancelar</button>
+                    <button type="submit" id="btnConfirmarReasignar" class="btn" style="background:#16a34a; font-weight:700;">
+                        💾 Guardar y Reasignar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -995,7 +1049,16 @@
                             <div>${hora}</div>
                             <div style="font-size:11px; color:#64748b;">${fecha}</div>
                         </td>
-                        <td>${m.proyecto_nombre}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span>${m.proyecto_nombre}</span>
+                                <button onclick="abrirModalReasignar(${m.id}, '${m.empleado_nombre.replace(/'/g, "\\'")}', '${m.proyecto_nombre.replace(/'/g, "\\'")}')" 
+                                        style="background:none; border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:11px; padding:1px 5px; color:var(--text-main);"
+                                        title="Reasignar o corregir obra si el trabajador se equivocó">
+                                    ✏️
+                                </button>
+                            </div>
+                        </td>
                         <td>${actHtml}</td>
                         <td style="font-weight:bold; color:#0284c7;">${m.similitud_facial}%</td>
                         <td>${distText}</td>
@@ -1058,6 +1121,16 @@
             // Configurar botón de borrado en el modal
             document.getElementById('btnBorrarModal').onclick = () => eliminarMarcaje(m.id, m.empleado_nombre);
 
+            // Configurar botones de reasignación en el modal
+            const btnReasig = document.getElementById('btnReasignarModal');
+            if (btnReasig) {
+                btnReasig.onclick = () => abrirModalReasignar(m.id, m.empleado_nombre, m.proyecto_nombre);
+            }
+            const btnReasigFooter = document.getElementById('btnReasignarModalFooter');
+            if (btnReasigFooter) {
+                btnReasigFooter.onclick = () => abrirModalReasignar(m.id, m.empleado_nombre, m.proyecto_nombre);
+            }
+
             const mapaBtnContainer = document.getElementById('modBotonMapa');
             if (m.lat && m.lon) {
                 mapaBtnContainer.innerHTML = `
@@ -1118,6 +1191,121 @@
         }
         function cerrarModalFondo(e) {
             if (e.target.id === 'modalInspeccion') cerrarModal();
+        }
+
+        // ================= REASIGNAR OBRA / PROYECTO (ADMIN) =================
+        let marcajeIdReasignar = null;
+
+        function abrirModalReasignar(marcajeId, empleadoNombre, obraActual) {
+            marcajeIdReasignar = marcajeId;
+            document.getElementById('reasignarMarcajeId').value = marcajeId;
+            document.getElementById('reasignarTrabajadorNombre').innerText = empleadoNombre;
+            document.getElementById('reasignarObraActual').innerText = obraActual;
+            
+            // Poblar el selector con las obras registradas
+            const select = document.getElementById('selectNuevaObra');
+            select.innerHTML = '';
+            
+            const obrasDisponibles = (datosProyectos && datosProyectos.length > 0) 
+                ? datosProyectos 
+                : [{ nombre: 'Beacon Hill' }, { nombre: 'UW Haggett Hall' }, { nombre: 'Office' }, { nombre: 'Obra Ryan Pacific - Sede Principal' }];
+            
+            obrasDisponibles.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.nombre;
+                opt.textContent = `📍 ${p.nombre}`;
+                if (p.nombre.toLowerCase().trim() === obraActual.toLowerCase().trim()) {
+                    opt.disabled = true;
+                    opt.textContent += ' (Obra actual)';
+                }
+                select.appendChild(opt);
+            });
+            
+            // Seleccionar automáticamente la primera opción habilitada
+            for (let opt of select.options) {
+                if (!opt.disabled) {
+                    opt.selected = true;
+                    break;
+                }
+            }
+            
+            document.getElementById('chkReasignarTodosHoy').checked = true;
+            const modal = document.getElementById('modalReasignarObra');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+
+        function abrirModalReasignarPorTrabajador(empleadoNombre, obraActual) {
+            // Buscar en datosMarcajes el registro correspondiente a este empleado
+            const m = datosMarcajes.find(item => item.empleado_nombre === empleadoNombre && item.proyecto_nombre === obraActual);
+            if (m) {
+                abrirModalReasignar(m.id, empleadoNombre, obraActual);
+            } else {
+                const mAny = datosMarcajes.find(item => item.empleado_nombre === empleadoNombre);
+                if (mAny) {
+                    abrirModalReasignar(mAny.id, empleadoNombre, obraActual);
+                } else {
+                    alert(`No se encontró el marcaje de hoy de ${empleadoNombre} en la vista actual.`);
+                }
+            }
+        }
+
+        function cerrarModalReasignar() {
+            const modal = document.getElementById('modalReasignarObra');
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
+
+        function cerrarModalReasignarFondo(e) {
+            if (e.target.id === 'modalReasignarObra') cerrarModalReasignar();
+        }
+
+        async function ejecutarReasignarObra(e) {
+            e.preventDefault();
+            const marcajeId = document.getElementById('reasignarMarcajeId').value;
+            const nuevaObra = document.getElementById('selectNuevaObra').value;
+            const todosHoy = document.getElementById('chkReasignarTodosHoy').checked;
+            const btn = document.getElementById('btnConfirmarReasignar');
+
+            if (!nuevaObra) {
+                alert('Por favor selecciona una obra de destino.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = '⏳ Guardando cambio...';
+
+            try {
+                const resp = await fetch(`/api/marcajes/${marcajeId}/reasignar_proyecto`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nuevo_proyecto: nuevaObra,
+                        reasignar_todos_hoy: todosHoy
+                    })
+                });
+
+                const data = await resp.json();
+                if (data.status === 'ok') {
+                    alert(`✅ ${data.mensaje}`);
+                    cerrarModalReasignar();
+                    cerrarModal(); // Si el modal de inspección estaba abierto
+                    
+                    // Si el modal de resumen del día está abierto, refrescarlo
+                    const modalRes = document.getElementById('modalResumenDiaAdmin');
+                    if (modalRes && !modalRes.classList.contains('hidden') && modalRes.style.display !== 'none') {
+                        abrirResumenModalAdmin();
+                    }
+                    recargarDatos();
+                } else {
+                    alert('❌ Error: ' + (data.error || data.detail || 'No se pudo reasignar'));
+                }
+            } catch (err) {
+                alert('❌ Error de conexión al reasignar obra.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '💾 Guardar y Reasignar';
+            }
         }
 
         // ================= PLANTILLA DE TRABAJADORES (TAB 2) =================
@@ -1623,12 +1811,19 @@
                                                  style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:2px solid #cbd5e1; cursor:pointer; flex-shrink:0; background:#f1f5f9;">
                                             <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.nombre}</span>
                                         </div>
-                                        <span style="${esActivo 
-                                            ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
-                                            : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
-                                            font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px; flex-shrink:0;">
-                                            ${t.estado}
-                                        </span>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="${esActivo 
+                                                ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' 
+                                                : 'background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;'} 
+                                                font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px; flex-shrink:0;">
+                                                ${t.estado}
+                                            </span>
+                                            <button onclick="abrirModalReasignarPorTrabajador('${t.nombre.replace(/'/g, "\\'")}', '${obra.nombre.replace(/'/g, "\\'")}')" 
+                                                    style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; font-size:10px; font-weight:700; color:#475569; padding:2px 6px; cursor:pointer;"
+                                                    title="Mover o reasignar este trabajador a otra obra">
+                                                ✏️ Mover
+                                            </button>
+                                        </div>
                                     </div>
                                     <div style="margin-top:4px; padding-left:42px; font-size:12px;">
                                         ${act ? `

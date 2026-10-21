@@ -7,7 +7,8 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "asistencia.db")
 
 def get_connection():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=60.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -118,19 +119,29 @@ def init_db():
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_actividades_fecha_emp ON actividades_diarias(fecha, empleado_nombre)")
 
-    # Insertar proyectos iniciales si está vacío
-    cursor.execute("SELECT COUNT(*) as count FROM proyectos")
-    if cursor.fetchone()["count"] == 0:
-        proyectos_iniciales = [
-            ("Obra Ryan Pacific - Sede Principal", 47.6062, -122.3321, 200, "RPCS-SEDE-X9"),
-            ("UW Haggett Hall", 47.6553, -122.3035, 250, "RPCS-HAGG-U1"),
-            ("Beacon Hill", 47.5794, -122.3116, 200, "RPCS-BEAC-B2"),
-            ("Office", 47.6062, -122.3321, 150, "RPCS-OFFI-O3")
-        ]
-        cursor.executemany("""
-        INSERT INTO proyectos (nombre, lat, lon, radio_metros, qr_token)
-        VALUES (?, ?, ?, ?, ?)
-        """, proyectos_iniciales)
+    # Tabla de configuración de sistema para no recrear proyectos si el usuario los eliminó
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS sistema_config (
+        clave TEXT PRIMARY KEY,
+        valor TEXT
+    )
+    """)
+    cursor.execute("SELECT valor FROM sistema_config WHERE clave = 'inicializado'")
+    if not cursor.fetchone():
+        # Solo en la primerísima inicialización virgen del sistema:
+        cursor.execute("SELECT COUNT(*) as count FROM proyectos")
+        if cursor.fetchone()["count"] == 0:
+            proyectos_iniciales = [
+                ("Obra Ryan Pacific - Sede Principal", 47.6062, -122.3321, 200, "RPCS-SEDE-X9"),
+                ("UW Haggett Hall", 47.6553, -122.3035, 250, "RPCS-HAGG-U1"),
+                ("Beacon Hill", 47.5794, -122.3116, 200, "RPCS-BEAC-B2"),
+                ("Office", 47.6062, -122.3321, 150, "RPCS-OFFI-O3")
+            ]
+            cursor.executemany("""
+            INSERT INTO proyectos (nombre, lat, lon, radio_metros, qr_token)
+            VALUES (?, ?, ?, ?, ?)
+            """, proyectos_iniciales)
+        cursor.execute("INSERT OR REPLACE INTO sistema_config (clave, valor) VALUES ('inicializado', '1')")
 
     # Asegurar que Diego conserve rol de admin si existe en la base de datos
     cursor.execute("""
@@ -446,6 +457,106 @@ def obtener_historial_actividades_empleado_dia(empleado_nombre, fecha):
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+def reasignar_proyecto_marcaje(marcaje_id: int, nuevo_proyecto_nombre: str, reasignar_todos_hoy: bool = False):
+    """
+    Permite a los administradores corregir la obra de un marcaje si el obrero se equivocó al fichar.
+    Opcionalmente reasigna todas las marcas y actividades del día para ese trabajador.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 1. Obtener proyecto destino
+    cursor.execute("SELECT * FROM proyectos WHERE nombre = ? AND activo = 1", (nuevo_proyecto_nombre,))
+    proy_destino = cursor.fetchone()
+    if not proy_destino:
+        conn.close()
+        return {"status": "error", "error": f"La obra destino '{nuevo_proyecto_nombre}' no existe o está inactiva."}
+
+    # 2. Obtener marcaje origen
+    cursor.execute("SELECT * FROM marcajes WHERE id = ?", (marcaje_id,))
+    marcaje = cursor.fetchone()
+    if not marcaje:
+        conn.close()
+        return {"status": "error", "error": "Marcaje no encontrado."}
+
+    obra_anterior = marcaje["proyecto_nombre"]
+    empleado_nombre = marcaje["empleado_nombre"]
+    fecha_hoy = (marcaje["timestamp_local"] or datetime.now().isoformat())[:10]
+
+    # Lista de IDs a modificar
+    ids_a_modificar = [marcaje_id]
+    if reasignar_todos_hoy:
+        cursor.execute("""
+            SELECT id FROM marcajes 
+            WHERE empleado_nombre = ? AND timestamp_local LIKE ?
+        """, (empleado_nombre, f"{fecha_hoy}%"))
+        ids_a_modificar = [r["id"] for r in cursor.fetchall()]
+
+    from .geofence import validar_posicion_en_obra
+
+    for m_id in ids_a_modificar:
+        cursor.execute("SELECT * FROM marcajes WHERE id = ?", (m_id,))
+        m = cursor.fetchone()
+        if not m:
+            continue
+
+        lat = m["lat"]
+        lon = m["lon"]
+        accuracy = m["gps_accuracy"]
+        notas_orig = m["notas"] or ""
+        metodo = m["metodo_ubicacion"]
+
+        distancia_nueva = m["distancia_metros"]
+        estado_auditoria = m["estado_auditoria"]
+
+        # Recalcular geocerca con la nueva obra si tiene coordenadas GPS
+        if lat is not None and lon is not None:
+            es_valido_gps, dist, motivo = validar_posicion_en_obra(
+                lat, lon, accuracy, proy_destino["lat"], proy_destino["lon"], proy_destino["radio_metros"]
+            )
+            distancia_nueva = dist
+            if metodo == "GPS":
+                if es_valido_gps and (m["similitud_facial"] or 0) >= 50.0:
+                    estado_auditoria = "APROBADO"
+                elif not es_valido_gps and dist and dist > 1000:
+                    estado_auditoria = "SOSPECHA_FRAUDE"
+                elif not es_valido_gps:
+                    estado_auditoria = "REVISION_GPS"
+
+        nota_cambio = f" [Reasignado de '{obra_anterior}' a '{nuevo_proyecto_nombre}' por Admin]"
+        notas_final = notas_orig + nota_cambio if nota_cambio not in notas_orig else notas_orig
+
+        cursor.execute("""
+            UPDATE marcajes 
+            SET proyecto_nombre = ?, distancia_metros = ?, estado_auditoria = ?, notas = ?
+            WHERE id = ?
+        """, (nuevo_proyecto_nombre, distancia_nueva, estado_auditoria, notas_final, m_id))
+
+    # Actualizar actividades del día para mantener consistencia
+    cursor.execute("""
+        UPDATE actividades_diarias
+        SET proyecto_nombre = ?
+        WHERE empleado_nombre = ? AND fecha = ? AND proyecto_nombre = ?
+    """, (nuevo_proyecto_nombre, empleado_nombre, fecha_hoy, obra_anterior))
+
+    conn.commit()
+    conn.close()
+
+    # Sincronizar en Drive inmediatamente
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "mensaje": f"Obra reasignada exitosamente a '{nuevo_proyecto_nombre}'.",
+        "obra_anterior": obra_anterior,
+        "nueva_obra": nuevo_proyecto_nombre,
+        "total_actualizados": len(ids_a_modificar)
+    }
 
 def eliminar_marcaje(marcaje_id):
     conn = get_connection()
