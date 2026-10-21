@@ -151,3 +151,109 @@ def realizar_respaldo_completo(carpeta_id: str = None) -> dict:
 
     res_db = subir_archivo_drive(db_path, nombre_remoto=nombre_db_backup, carpeta_id=carpeta_id)
     return res_db
+
+
+def sincronizar_db_a_drive_master(carpeta_id: str = None) -> dict:
+    """
+    Sube o actualiza 'asistencia_master.db' en Google Drive.
+    Si ya existe un archivo con ese nombre en la carpeta, lo actualiza en su lugar (sin duplicar).
+    """
+    db_path = os.path.join(BASE_DIR, "data", "asistencia.db")
+    if not os.path.exists(db_path):
+        return {"status": "error", "error": "Base de datos no encontrada"}
+
+    service = obtener_servicio_drive()
+    if not service:
+        return {"status": "error", "error": "No hay conexión con Google Drive"}
+
+    target_folder = carpeta_id or GDRIVE_FOLDER_ID
+    if not target_folder:
+        return {"status": "error", "error": "No hay ID de carpeta de Drive"}
+
+    try:
+        q = f"'{target_folder}' in parents and name = 'asistencia_master.db' and trashed = false"
+        res = service.files().list(q=q, supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
+        files = res.get('files', [])
+        media = MediaFileUpload(db_path, mimetype="application/x-sqlite3", resumable=True)
+
+        if files:
+            file_id = files[0]['id']
+            archivo = service.files().update(
+                fileId=file_id,
+                media_body=media,
+                supportsAllDrives=True
+            ).execute()
+            logger.info(f"✅ 'asistencia_master.db' actualizado en Drive (ID: {file_id})")
+            return {"status": "ok", "file_id": file_id, "name": "asistencia_master.db", "action": "update"}
+        else:
+            meta = {"name": "asistencia_master.db", "parents": [target_folder]}
+            archivo = service.files().create(
+                body=meta,
+                media_body=media,
+                supportsAllDrives=True,
+                fields="id, name"
+            ).execute()
+            logger.info(f"✅ 'asistencia_master.db' creado en Drive (ID: {archivo.get('id')})")
+            return {"status": "ok", "file_id": archivo.get('id'), "name": "asistencia_master.db", "action": "create"}
+    except Exception as e:
+        logger.error(f"❌ Error sincronizando asistencia_master.db a Drive: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def sincronizar_db_a_drive_master_async(carpeta_id: str = None):
+    """Lanza la sincronización de asistencia_master.db en un hilo en segundo plano."""
+    def worker():
+        try:
+            sincronizar_db_a_drive_master(carpeta_id)
+        except Exception as e:
+            logger.error(f"Error en worker de sincronización a Drive: {e}")
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+
+
+def restaurar_db_desde_drive_master(carpeta_id: str = None) -> bool:
+    """
+    Descarga 'asistencia_master.db' desde Google Drive al archivo local data/asistencia.db
+    si la base de datos local está vacía o no existe.
+    """
+    db_path = os.path.join(BASE_DIR, "data", "asistencia.db")
+    service = obtener_servicio_drive()
+    if not service:
+        logger.warning("No se pudo conectar a Google Drive para restaurar base de datos.")
+        return False
+
+    target_folder = carpeta_id or GDRIVE_FOLDER_ID
+    try:
+        q = f"'{target_folder}' in parents and name = 'asistencia_master.db' and trashed = false"
+        res = service.files().list(q=q, supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
+        files = res.get('files', [])
+        if not files:
+            logger.info("No se encontró 'asistencia_master.db' en Google Drive para restaurar.")
+            return False
+
+        from googleapiclient.http import MediaIoBaseDownload
+        file_id = files[0]['id']
+        req = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+        temp_path = db_path + ".temp"
+        with open(temp_path, "wb") as f:
+            downloader = MediaIoBaseDownload(f, req)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+
+        if os.path.exists(temp_path) and os.path.getsize(temp_path) > 1024:
+            if os.path.exists(db_path):
+                os.remove(db_path)
+            os.rename(temp_path, db_path)
+            logger.info(f"✅ Base de datos restaurada con éxito desde Google Drive ('asistencia_master.db', ID: {file_id}).")
+            return True
+        else:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            return False
+    except Exception as e:
+        logger.error(f"❌ Error restaurando base de datos desde Google Drive: {e}")
+        return False

@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import base64
 import os
+import threading
 import onnxruntime
 
 # Límites estrictos de memoria RAM para servidores en la nube (Render 512MB)
@@ -13,38 +14,41 @@ os.environ["MKL_NUM_THREADS"] = "1"
 from insightface.app import FaceAnalysis
 
 _face_app = None
+_biometrics_lock = threading.Lock()
 
 def get_face_app():
     """
-    Inicializador seguro bajo demanda (lazy-loading).
+    Inicializador seguro bajo demanda (lazy-loading con thread lock).
     Garantiza que solo se carguen los pesos ligeros de detección y reconocimiento,
-    manteniendo el consumo de RAM en menos de 120MB.
+    manteniendo el consumo de RAM en menos de 120MB y evitando carreras de hilos.
     """
     global _face_app
-    if _face_app is None:
-        print("[INFO] Inicializando motor biometrico ultra-ligero (<120MB RAM)...")
-        models_dir = os.path.expanduser('~/.insightface/models/buffalo_s')
-        if os.path.exists(models_dir):
-            for unused in ['1k3d68.onnx', '2d106det.onnx', 'genderage.onnx']:
-                fpath = os.path.join(models_dir, unused)
-                if os.path.exists(fpath):
-                    try:
-                        os.remove(fpath)
-                    except Exception:
-                        pass
-                        
-        _face_app = FaceAnalysis(
-            name='buffalo_s',
-            root=os.path.expanduser('~/.insightface'),
-            allowed_modules=['detection', 'recognition']
-        )
-        _face_app.prepare(ctx_id=-1, det_size=(320, 320))
-        print("[INFO] Motor biometrico listo y optimizado en memoria.")
-    return _face_app
+    with _biometrics_lock:
+        if _face_app is None:
+            print("[INFO] Inicializando motor biometrico ultra-ligero (<120MB RAM)...")
+            models_dir = os.path.expanduser('~/.insightface/models/buffalo_s')
+            if os.path.exists(models_dir):
+                for unused in ['1k3d68.onnx', '2d106det.onnx', 'genderage.onnx']:
+                    fpath = os.path.join(models_dir, unused)
+                    if os.path.exists(fpath):
+                        try:
+                            os.remove(fpath)
+                        except Exception:
+                            pass
+                            
+            _face_app = FaceAnalysis(
+                name='buffalo_s',
+                root=os.path.expanduser('~/.insightface'),
+                allowed_modules=['detection', 'recognition']
+            )
+            _face_app.prepare(ctx_id=-1, det_size=(320, 320))
+            print("[INFO] Motor biometrico listo y optimizado en memoria.")
+        return _face_app
 
 def decodificar_imagen(datos_bytes_o_base64):
     """
-    Convierte bytes o string base64 en imagen OpenCV (BGR).
+    Convierte bytes o string base64 en imagen OpenCV (BGR) y la normaliza a máx 640px.
+    Evita saturación de RAM por fotos de cámaras móviles de 48MP/108MP (previene Segfault 139).
     """
     if isinstance(datos_bytes_o_base64, str):
         if "," in datos_bytes_o_base64:
@@ -54,6 +58,12 @@ def decodificar_imagen(datos_bytes_o_base64):
         nparr = np.frombuffer(datos_bytes_o_base64, np.uint8)
         
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is not None:
+        h, w = img.shape[:2]
+        max_dim = 640
+        if max(h, w) > max_dim:
+            scale = max_dim / float(max(h, w))
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     return img
 
 def mejorar_contraste_obra(img):
@@ -94,23 +104,26 @@ def extraer_vector_rostro(img):
     # Preprocesar imagen
     img_opt = mejorar_contraste_obra(img)
 
-    faces = face_app.get(img_opt)
-    if not faces:
-        # Intentar con la imagen original sin CLAHE por si acaso
-        faces = face_app.get(img)
+    # Bloqueo de concurrencia: ONNX Runtime CPU no es reentrante en el mismo modelo C++.
+    # Esto previene el "Exited with status 139 (SIGSEGV)" cuando múltiples trabajadores marcan a la vez.
+    with _biometrics_lock:
+        faces = face_app.get(img_opt)
         if not faces:
-            return None, "No se detectó ningún rostro. Mire fijamente a la cámara.", None
+            # Intentar con la imagen original sin CLAHE por si acaso
+            faces = face_app.get(img)
+            if not faces:
+                return None, "No se detectó ningún rostro. Mire fijamente a la cámara.", None
 
-    # Tomar el rostro principal (con mayor área de bounding box)
-    mejor_cara = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        # Tomar el rostro principal (con mayor área de bounding box)
+        mejor_cara = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
 
-    # Vector 512D
-    emb = mejor_cara.embedding
-    norm = np.linalg.norm(emb)
-    if norm > 0:
-        emb = emb / norm
+        # Vector 512D
+        emb = mejor_cara.embedding
+        norm = np.linalg.norm(emb)
+        if norm > 0:
+            emb = emb / norm
 
-    return emb, None, mejor_cara.bbox.tolist()
+        return emb, None, mejor_cara.bbox.tolist()
 
 def verificar_1_a_1(vector_captura, lista_vectores_empleado):
     """

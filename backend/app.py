@@ -55,7 +55,17 @@ PERSONAL_TXT_PATH = os.path.join(BASE_DIR, "personal.txt")
 os.makedirs(CAPTURAS_DIR, exist_ok=True)
 os.makedirs(PERFILES_DIR, exist_ok=True)
 
-# Iniciar Base de Datos
+# Restaurar base de datos maestra desde Google Drive al inicio si es un contenedor nuevo
+try:
+    from .gdrive import restaurar_db_desde_drive_master, sincronizar_db_a_drive_master_async
+    db_file = os.path.join(DATA_DIR, "asistencia.db")
+    if not os.path.exists(db_file) or os.path.getsize(db_file) < 4096:
+        print("[GDRIVE] Intentando restaurar base de datos maestra desde Google Drive...")
+        restaurar_db_desde_drive_master()
+except Exception as e:
+    print("[GDRIVE] Aviso: No se pudo verificar restauración en Drive:", e)
+
+# Iniciar Base de Datos y migraciones
 init_db()
 
 app = FastAPI(title="Smart Hub - Control de Asistencia Ryan Pacific", version="2.1")
@@ -116,6 +126,11 @@ def api_actualizar_rol(empleado_id: int, payload: dict):
     """Actualiza el rol del empleado (worker, foreman, admin)."""
     nuevo_rol = payload.get("rol", "worker")
     actualizar_rol_empleado(empleado_id, nuevo_rol)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {"status": "ok", "empleado_id": empleado_id, "nuevo_rol": nuevo_rol}
 
 @app.post("/api/empleados/{empleado_id}/obras")
@@ -127,6 +142,11 @@ def api_actualizar_obras(empleado_id: int, payload: dict):
     if not obras or not str(obras).strip():
         obras = "ALL"
     actualizar_obras_empleado(empleado_id, str(obras).strip())
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {"status": "ok", "empleado_id": empleado_id, "obras_asignadas": str(obras).strip()}
 
 @app.get("/api/resumen_dia")
@@ -193,6 +213,11 @@ def api_guardar_proyecto(
         qr_token = f"RPCS-{codigo_limpio}-{uuid.uuid4().hex[:6].upper()}"
 
     guardar_proyecto(nombre, lat, lon, radio_metros, qr_token, pisos=pisos or "", actividades=actividades or "")
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {"status": "ok", "mensaje": "Proyecto guardado", "qr_token": qr_token}
 
 
@@ -201,12 +226,22 @@ async def api_actualizar_config_proyecto(proyecto_id: int, payload: dict):
     pisos = payload.get("pisos", "").strip()
     actividades = payload.get("actividades", "").strip()
     actualizar_config_proyecto(proyecto_id, pisos, actividades)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {"status": "ok", "mensaje": "Pisos y actividades actualizados correctamente"}
 
 
 @app.delete("/api/proyectos/{proyecto_id}")
 def api_eliminar_proyecto(proyecto_id: int):
     eliminar_proyecto(proyecto_id)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {"status": "ok", "mensaje": "Proyecto eliminado"}
 
 
@@ -256,6 +291,11 @@ def api_listar_empleados():
 @app.delete("/api/empleados/{empleado_id}")
 def api_eliminar_empleado(empleado_id: int):
     eliminar_empleado(empleado_id)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {"status": "ok", "mensaje": "Trabajador eliminado de la base de datos"}
 
 
@@ -305,6 +345,11 @@ async def api_enrolar_empleado(
         }
 
     guardar_o_actualizar_empleado(nombre, telefono, puesto, vectores, foto_perfil=ruta_foto_oficial)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
     return {
         "status": "ok",
         "mensaje": f"Trabajador '{nombre}' enrolado exitosamente ({len(vectores)} perfiles biométricos guardados).",
@@ -467,6 +512,13 @@ def procesar_un_marcaje(payload: dict) -> dict:
             subir_foto_async(ruta_completa, nombre_foto_drive)
         except Exception as e_gdrive:
             print("Aviso: no se pudo iniciar subida a Google Drive:", e_gdrive)
+
+    # Sincronizar base de datos maestra con Google Drive en segundo plano
+    try:
+        from backend.gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
 
     return {
         "status": "ok",

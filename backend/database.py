@@ -122,14 +122,22 @@ def init_db():
     cursor.execute("SELECT COUNT(*) as count FROM proyectos")
     if cursor.fetchone()["count"] == 0:
         proyectos_iniciales = [
-            ("Obra Ryan Pacific - Sede Principal", 34.0522, -118.2437, 200, "RPCS-OBRA-01-SEDE-X9"),
-            ("Proyecto Los Ángeles - Estructuras", 34.0407, -118.2468, 150, "RPCS-OBRA-02-ESTR-K2"),
-            ("Proyecto Costa Oeste - Excavación", 34.0195, -118.4912, 250, "RPCS-OBRA-03-EXCA-M7")
+            ("Obra Ryan Pacific - Sede Principal", 47.6062, -122.3321, 200, "RPCS-SEDE-X9"),
+            ("UW Haggett Hall", 47.6553, -122.3035, 250, "RPCS-HAGG-U1"),
+            ("Beacon Hill", 47.5794, -122.3116, 200, "RPCS-BEAC-B2"),
+            ("Office", 47.6062, -122.3321, 150, "RPCS-OFFI-O3")
         ]
         cursor.executemany("""
         INSERT INTO proyectos (nombre, lat, lon, radio_metros, qr_token)
         VALUES (?, ?, ?, ?, ?)
         """, proyectos_iniciales)
+
+    # Asegurar que Diego conserve rol de admin si existe en la base de datos
+    cursor.execute("""
+        UPDATE empleados 
+        SET rol = 'admin', obras_asignadas = 'ALL' 
+        WHERE (nombre LIKE 'Diego Mar%n' OR nombre LIKE 'DIEGO ALEXANDER MAR%N%') AND (rol IS NULL OR rol = 'worker')
+    """)
 
     conn.commit()
     conn.close()
