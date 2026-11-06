@@ -25,6 +25,7 @@ _drive_lock = threading.RLock()
 # Índice de fotos en memoria (O(1)) para evitar miles de llamadas lentas y colisiones SSL
 _TOKEN_TO_FID = {}
 _MARCAJE_MAP = {}
+_MARCAJES_CATALOGO = []  # Tuplas (norm_fn, fid, d_str, tipo_m)
 _EXACT_NAME_TO_FID = {}
 _INDEX_CARGADO = False
 _INDEX_LOCK = threading.Lock()
@@ -163,13 +164,10 @@ def subir_archivo_drive(ruta_local: str, nombre_remoto: str = None, carpeta_id: 
                         if len(part) >= 6:
                             _TOKEN_TO_FID[part.lower()] = f_id
                     if not f_name.startswith("PERFIL_") and not f_name.endswith(".db"):
-                        partes = base_clean.split("_")
-                        if len(partes) >= 3 and len(partes[0]) == 10 and "-" in partes[0]:
-                            d_str = partes[0]
-                            tipo_m = "ENTRADA" if "ENTRADA" in f_name.upper() else ("SALIDA" if "SALIDA" in f_name.upper() else "")
-                            emp_norm = _normalizar_txt(partes[-1])
-                            if d_str and emp_norm and tipo_m:
-                                _MARCAJE_MAP[(d_str, emp_norm, tipo_m)] = f_id
+                        norm_fn = _normalizar_txt(base_clean)
+                        d_str = base_clean[:10] if (len(base_clean) >= 10 and base_clean[4] == '-' and base_clean[7] == '-') else ""
+                        tipo_m = "ENTRADA" if "ENTRADA" in f_name.upper() else ("SALIDA" if "SALIDA" in f_name.upper() else "")
+                        _MARCAJES_CATALOGO.append((norm_fn, f_id, d_str, tipo_m))
 
             logger.info(f"✅ Archivo subido exitosamente a Google Drive: {nombre_archivo} (ID: {f_id})")
             return {
@@ -279,13 +277,10 @@ def cargar_indice_drive(carpeta_id: str = None) -> int:
                         _TOKEN_TO_FID[part.lower()] = fid
 
                 if not fn.startswith("PERFIL_") and not fn.endswith(".db"):
-                    partes = clean.split("_")
-                    if len(partes) >= 3 and len(partes[0]) == 10 and "-" in partes[0]:
-                        d_str = partes[0]
-                        tipo_m = "ENTRADA" if "ENTRADA" in fn.upper() else ("SALIDA" if "SALIDA" in fn.upper() else "")
-                        emp_norm = _normalizar_txt(partes[-1])
-                        if d_str and emp_norm and tipo_m:
-                            _MARCAJE_MAP[(d_str, emp_norm, tipo_m)] = fid
+                    norm_fn = _normalizar_txt(clean)
+                    d_str = clean[:10] if (len(clean) >= 10 and clean[4] == '-' and clean[7] == '-') else ""
+                    tipo_m = "ENTRADA" if "ENTRADA" in fn.upper() else ("SALIDA" if "SALIDA" in fn.upper() else "")
+                    _MARCAJES_CATALOGO.append((norm_fn, fid, d_str, tipo_m))
 
             _INDEX_CARGADO = True
             logger.info(f"✅ Catálogo de fotos Google Drive precargado: {len(files)} archivos indexados en memoria.")
@@ -465,9 +460,19 @@ def descargar_foto_desde_drive(nombre_archivo: str, destino_local: str, carpeta_
                     emp_norm = _normalizar_txt(row[0])
                     tipo_m = str(row[1]).upper().strip()
                     d_str = str(row[2])[:10] if row[2] else ""
-                    file_id = _MARCAJE_MAP.get((d_str, emp_norm, tipo_m))
-        except Exception:
-            pass
+                    # 1. Búsqueda exacta por fecha, tipo y nombre de empleado
+                    for norm_fn, m_fid, m_date, m_tipo in _MARCAJES_CATALOGO:
+                        if m_date == d_str and m_tipo == tipo_m and emp_norm in norm_fn:
+                            file_id = m_fid
+                            break
+                    # 2. Búsqueda de respaldo por tipo y nombre
+                    if not file_id:
+                        for norm_fn, m_fid, m_date, m_tipo in _MARCAJES_CATALOGO:
+                            if m_tipo == tipo_m and emp_norm in norm_fn:
+                                file_id = m_fid
+                                break
+        except Exception as e_sql:
+            logger.warning(f"Error resolviendo marcaje en SQLite: {e_sql}")
 
     # Si NO está en el catálogo de Google Drive, salir inmediatamente sin bloquear
     if not file_id:

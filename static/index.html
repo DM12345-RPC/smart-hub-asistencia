@@ -1920,8 +1920,6 @@
                 }).catch(e => console.warn("Confirmación offline guardada"));
             } catch (e) {}
         }
-            } catch (e) {}
-        }
 
         // ================= GESTIÓN DE TAREAS Y ACTIVIDADES (FOREMAN) =================
         let seleccionCuadrilla = {}; // obra -> Set de nombres
@@ -2229,12 +2227,12 @@
 
         // ================= INICIALIZACIÓN GENERAL =================
         async function arrancar() {
-            cargarPerfilActual();
-            iniciarIndexedDB();
-            iniciarGPS();
-            cargarListaOficialPersonal();
-            cargarProyectos();
-            await encenderCamara("user");
+            try { cargarPerfilActual(); } catch(e) { console.error("Error cargando perfil:", e); }
+            try { iniciarIndexedDB(); } catch(e) { console.error("Error iniciando IndexedDB:", e); }
+            try { iniciarGPS(); } catch(e) { console.error("Error iniciando GPS:", e); }
+            try { cargarListaOficialPersonal(); } catch(e) { console.error("Error lista personal:", e); }
+            try { await cargarProyectos(); } catch(e) { console.error("Error cargando proyectos:", e); }
+            try { await encenderCamara("user"); } catch(e) { console.warn("Aviso cámara:", e); }
 
             // Registrar Service Worker para PWA Offline y Alertas Push
             if ('serviceWorker' in navigator) {

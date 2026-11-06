@@ -1103,10 +1103,10 @@
         }
 
         async function recargarDatos() {
-            await cargarMetricas();
-            await recargarTabla();
-            await cargarProyectosAdmin();
-            await cargarEmpleadosAdmin();
+            try { await cargarMetricas(); } catch(e) { console.error("Error metricas:", e); }
+            try { await recargarTabla(); } catch(e) { console.error("Error tabla:", e); }
+            try { await cargarProyectosAdmin(); } catch(e) { console.error("Error proyectos:", e); }
+            try { await cargarEmpleadosAdmin(); } catch(e) { console.error("Error empleados:", e); }
         }
 
         async function cargarMetricas(proyectoFiltro) {
@@ -2030,7 +2030,7 @@
                     container.innerHTML = data.proyectos.map(p => {
                         const pisosStr = (p.pisos || 'Piso 1, Piso 2, Piso 3, Sótano 1, Azotea').trim();
                         const actsStr = (p.actividades || 'Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza').trim();
-                        const pNombreEsc = (p.nombre || '').replace(/'/g, "\\'");
+                        const pNombreEsc = (p.nombre || '').split("'").join("\\'");
 
                         return `
                         <div class="project-item" style="display:flex; flex-direction:column; gap:8px;">
@@ -2667,6 +2667,8 @@
                                 const esActivo = (t.estado === 'ACTIVO');
                                 const act = t.actividad_actual;
                                 const totalActs = t.total_actividades || 0;
+                                const tNombreEsc = (t.nombre || '').split("'").join("\\'");
+                                const obraNombreEsc = (obra.nombre || '').split("'").join("\\'");
 
                                 return `
                                 <div style="background:${esActivo ? '#ffffff' : '#f8fafc'}; border:1px solid ${esActivo ? '#e2e8f0' : '#f1f5f9'}; border-radius:10px; padding:8px 10px;">
@@ -2687,7 +2689,7 @@
                                                 font-size:10px; font-weight:800; padding:3px 8px; border-radius:8px; letter-spacing:0.5px; flex-shrink:0;">
                                                 ${t.estado}
                                             </span>
-                                            <button onclick="abrirModalReasignarPorTrabajador('${t.nombre.replace(/'/g, "\\'")}', '${obra.nombre.replace(/'/g, "\\'")}')" 
+                                            <button onclick="abrirModalReasignarPorTrabajador('${tNombreEsc}', '${obraNombreEsc}')" 
                                                     style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; font-size:10px; font-weight:700; color:#475569; padding:2px 6px; cursor:pointer;"
                                                     title="Mover o reasignar este trabajador a otra obra">
                                                 ✏️ Mover
