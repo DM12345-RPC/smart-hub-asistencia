@@ -773,8 +773,11 @@
                     <div id="boxTareaActualDetalle" style="font-size:14px; color:var(--text-main); line-height:1.5;">
                         Cargando labor asignada...
                     </div>
+                    <div id="listaHistorialTareas" style="margin-top:8px;"></div>
                 </div>
             </div>
+
+
 
             <!-- SECCIÓN 2: AVISOS Y COMUNICADOS OFICIALES -->
             <div>
@@ -1242,6 +1245,7 @@
                 abrirModalPerfil();
                 return;
             }
+            suscribirWebPushServiceWorker().catch(() => {});
 
             // 0. Bloqueo Infranqueable de Biometría:
             // Si el trabajador ya marcó ENTRADA hoy (está en jornada activa), no se le interrumpe para permitirle marcar su SALIDA normalmente.
@@ -1590,6 +1594,8 @@
             ui.lblTrabajador.innerText = nom;
             ui.modalOnboarding.classList.add('hidden');
             verificarRolUsuario(nom);
+            suscribirWebPushServiceWorker().catch(() => {});
+            cargarMisAvisosYTareas(false).catch(() => {});
         });
 
         async function ejecutarEnrolamientoFacial(nombre, telefono) {
@@ -2064,6 +2070,8 @@
         }
 
         // ================= GESTIÓN DE NOTIFICACIONES Y WEBPUSH (Punto 1 y 2) =================
+        const VAPID_PUBLIC_KEY = "BNXOufzKC-u8BfTnefHik0emdgJ1sTAwQ7Vub6nDRR-OdaiD94uvH9m4Glfe1vu3F9W5pmMLvmj9XstXtSGeOFo";
+
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
             const base64 = (base64String + padding)
@@ -2078,37 +2086,44 @@
         }
 
         async function suscribirWebPushServiceWorker() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                return false;
+            }
             try {
+                if (window.Notification && Notification.permission !== 'granted') {
+                    const perm = await Notification.requestPermission();
+                    if (perm !== 'granted') return false;
+                }
+
                 const reg = await navigator.serviceWorker.ready;
                 let sub = await reg.pushManager.getSubscription();
                 if (!sub) {
-                    const res = await fetch('/api/push/vapid_public_key');
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.public_key) {
-                            sub = await reg.pushManager.subscribe({
-                                userVisibleOnly: true,
-                                applicationServerKey: urlBase64ToUint8Array(data.public_key)
-                            });
-                        }
-                    }
+                    const appKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: appKey
+                    });
                 }
                 if (sub) {
                     const nombre = localStorage.getItem("rpcs_nombre") || "Anonimo";
+                    const subJson = (sub.toJSON ? sub.toJSON() : sub);
                     await fetch('/api/push/subscribe', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             empleado_nombre: nombre,
-                            subscription: (sub.toJSON ? sub.toJSON() : sub)
+                            nombre: nombre,
+                            subscription: subJson
                         })
                     });
                     console.log("✅ Suscripción WebPush registrada para:", nombre);
+                    return true;
                 }
             } catch (e) {
                 console.warn("Aviso suscripción WebPush:", e);
+                return false;
             }
+            return false;
         }
 
         async function solicitarPermisoNotificacionesAutomatico() {
@@ -2163,15 +2178,27 @@
 
         async function cargarMisAvisosYTareas(silencioso = false) {
             const nombre = localStorage.getItem("rpcs_nombre");
-            if (!nombre) return;
+            if (!nombre) {
+                const boxDetalle = document.getElementById('boxTareaActualDetalle');
+                const listaAvisos = document.getElementById('listaAvisosHistorial');
+                if (boxDetalle) boxDetalle.innerHTML = '<div style="color:var(--text-sub); font-size:13px; text-align:center; padding:10px;">⚪ Selecciona tu nombre arriba para consultar tus labores.</div>';
+                if (listaAvisos) listaAvisos.innerHTML = '<div style="color:var(--text-sub); font-size:13px; text-align:center; padding:16px;">Selecciona tu nombre arriba para ver tus avisos.</div>';
+                return;
+            }
             const obra = ui.selProyecto ? ui.selProyecto.value : '';
             try {
                 const res = await fetch(`/api/empleado/mis_avisos_y_tareas?nombre=${encodeURIComponent(nombre)}&obra=${encodeURIComponent(obra || '')}`);
-                if (!res.ok) return;
+                if (!res.ok) {
+                    renderizarContenidoModalAvisosYTareas();
+                    return;
+                }
                 const data = await res.json();
-                if (data.status !== 'ok') return;
+                if (data.status !== 'ok') {
+                    renderizarContenidoModalAvisosYTareas();
+                    return;
+                }
 
-                const tareaAnt = cacheMisAvisosYTareas.tarea_actual;
+                const tareaAnt = cacheMisAvisosYTareas ? cacheMisAvisosYTareas.tarea_actual : null;
                 cacheMisAvisosYTareas = data;
 
                 actualizarBarraTareaActual(data.tarea_actual);
@@ -2193,13 +2220,14 @@
                 }
             } catch(e) {
                 console.warn("Aviso al consultar mis avisos y tareas:", e);
+                renderizarContenidoModalAvisosYTareas();
             }
         }
 
         function notificarNuevaTareaAsignada(tarea) {
             reproducirSonidoTareaAsignada();
             if ('vibrate' in navigator) navigator.vibrate([250, 100, 250]);
-            mostrarToast(`⚡ Nueva labor: ${tarea.piso} • ${tarea.actividad}`);
+            mostrarToast(`⚡ Nueva labor: ${tarea.piso || 'Obra'} • ${tarea.actividad}`);
 
             if ('Notification' in window && Notification.permission === 'granted') {
                 try {
@@ -2228,6 +2256,13 @@
             if (!modal) return;
             modal.classList.remove('hidden');
             modal.style.display = 'flex';
+            
+            // Renderizar inmediatamente lo que haya en memoria
+            renderizarContenidoModalAvisosYTareas();
+            
+            // Aprovechar el toque de usuario para registrar WebPush
+            suscribirWebPushServiceWorker().catch(() => {});
+
             await cargarMisAvisosYTareas(false);
             renderizarContenidoModalAvisosYTareas();
         }
@@ -2248,93 +2283,101 @@
             const boxDetalle = document.getElementById('boxTareaActualDetalle');
             const listaHist = document.getElementById('listaHistorialTareas');
             const listaAvisos = document.getElementById('listaAvisosHistorial');
-            const t = cacheMisAvisosYTareas.tarea_actual;
+            const t = (cacheMisAvisosYTareas && cacheMisAvisosYTareas.tarea_actual) ? cacheMisAvisosYTareas.tarea_actual : null;
 
             // 1. Tarea Actual
-            if (t && t.actividad) {
-                const hIni = t.hora_inicio ? t.hora_inicio.slice(0, 5) : 'Hoy';
-                boxDetalle.innerHTML = `
-                    <div style="font-size:16px; font-weight:800; color:#2563eb; margin-bottom:4px;">
-                        🔨 ${t.actividad}
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--text-sub);">
-                        <div><b>📍 Obra:</b> ${t.proyecto_nombre || 'Asignada'}</div>
-                        <div><b>🏢 Piso / Nivel:</b> ${t.piso || 'N/A'}</div>
-                        <div><b>⏱️ Asignado hoy:</b> ${hIni} (Seattle PT)</div>
-                        <div><b>👤 Asignado por:</b> ${t.asignado_por || 'Foreman'}</div>
-                        ${t.notas ? `<div style="margin-top:4px; padding:6px; background:var(--input-bg); border-radius:6px; font-style:italic;">📝 Notas: ${t.notas}</div>` : ''}
-                    </div>
-                `;
-            } else {
-                boxDetalle.innerHTML = `
-                    <div style="color:var(--text-sub); font-size:13px; text-align:center; padding:10px;">
-                        ⚪ Aún no tienes una labor específica registrada hoy.<br>
-                        <span style="font-size:11px; opacity:0.8;">Tu capataz o foreman te la asignará al iniciar en obra.</span>
-                    </div>
-                `;
+            if (boxDetalle) {
+                if (t && t.actividad) {
+                    const hIni = t.hora_inicio ? t.hora_inicio.slice(0, 5) : 'Hoy';
+                    boxDetalle.innerHTML = `
+                        <div style="font-size:16px; font-weight:800; color:#2563eb; margin-bottom:4px;">
+                            🔨 ${t.actividad}
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--text-sub);">
+                            <div><b>📍 Obra:</b> ${t.proyecto_nombre || 'Asignada'}</div>
+                            <div><b>🏢 Piso / Nivel:</b> ${t.piso || 'N/A'}</div>
+                            <div><b>⏱️ Asignado hoy:</b> ${hIni} (Seattle PT)</div>
+                            <div><b>👤 Asignado por:</b> ${t.asignado_por || 'Foreman'}</div>
+                            ${t.notas ? `<div style="margin-top:4px; padding:6px; background:var(--input-bg); border-radius:6px; font-style:italic;">📝 Notas: ${t.notas}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    boxDetalle.innerHTML = `
+                        <div style="color:var(--text-sub); font-size:13px; text-align:center; padding:10px;">
+                            ⚪ Aún no tienes una labor específica registrada hoy.<br>
+                            <span style="font-size:11px; opacity:0.8;">Tu capataz o foreman te la asignará al iniciar en obra.</span>
+                        </div>
+                    `;
+                }
             }
 
             // 2. Historial de tareas de hoy
-            const hist = cacheMisAvisosYTareas.historial_tareas || [];
-            if (hist.length > 0) {
-                listaHist.innerHTML = hist.map(h => {
-                    const hI = h.hora_inicio ? h.hora_inicio.slice(0, 5) : '';
-                    const hF = h.hora_fin ? h.hora_fin.slice(0, 5) : 'En curso';
-                    const esActual = (!h.hora_fin);
-                    return `
-                        <div style="background:${esActual ? 'var(--card-bg)' : 'var(--box-sub-bg)'}; border:1px solid ${esActual ? '#3b82f6' : 'var(--border)'}; border-radius:8px; padding:8px 10px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div style="font-weight:700; color:var(--text-main);">📍 ${h.piso} • 🔨 ${h.actividad}</div>
-                                <div style="font-size:11px; color:var(--text-sub);">Asignado por: ${h.asignado_por || 'Foreman'}</div>
+            if (listaHist) {
+                const hist = (cacheMisAvisosYTareas && cacheMisAvisosYTareas.historial_tareas) ? cacheMisAvisosYTareas.historial_tareas : [];
+                if (hist.length > 0) {
+                    listaHist.innerHTML = hist.map(h => {
+                        const hI = h.hora_inicio ? h.hora_inicio.slice(0, 5) : '';
+                        const hF = h.hora_fin ? h.hora_fin.slice(0, 5) : 'En curso';
+                        const esActual = (!h.hora_fin);
+                        return `
+                            <div style="background:${esActual ? 'var(--card-bg)' : 'var(--box-sub-bg)'}; border:1px solid ${esActual ? '#3b82f6' : 'var(--border)'}; border-radius:8px; padding:8px 10px; font-size:12px; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <div>
+                                    <div style="font-weight:700; color:var(--text-main);">📍 ${h.piso || 'N/A'} • 🔨 ${h.actividad}</div>
+                                    <div style="font-size:11px; color:var(--text-sub);">Asignado por: ${h.asignado_por || 'Foreman'}</div>
+                                </div>
+                                <span style="font-size:11px; font-weight:700; color:${esActual ? '#16a34a' : 'var(--text-sub)'};">
+                                    ${hI} - ${hF}
+                                </span>
                             </div>
-                            <span style="font-size:11px; font-weight:700; color:${esActual ? '#16a34a' : 'var(--text-sub)'};">
-                                ${hI} - ${hF}
-                            </span>
-                        </div>
-                    `;
-                }).join('');
-            } else {
-                listaHist.innerHTML = '<div style="font-size:12px; color:var(--text-sub); font-style:italic; padding:6px 0;">Sin tareas registradas hoy.</div>';
+                        `;
+                    }).join('');
+                } else {
+                    listaHist.innerHTML = '<div style="font-size:12px; color:var(--text-sub); font-style:italic; padding:6px 0;">Sin tareas registradas hoy.</div>';
+                }
             }
 
             // 3. Historial de avisos y comunicados
-            const coms = cacheMisAvisosYTareas.comunicados || [];
-            if (coms.length > 0) {
-                listaAvisos.innerHTML = coms.map(c => {
-                    let fecStr = 'Reciente';
-                    try {
-                        const raw = String(c.created_at || c.fecha_creacion).split('.')[0];
-                        fecStr = new Date(raw).toLocaleString('es-US', {
-                            timeZone: 'America/Los_Angeles',
-                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                        });
-                    } catch(e) {}
+            if (listaAvisos) {
+                const coms = (cacheMisAvisosYTareas && cacheMisAvisosYTareas.comunicados) ? cacheMisAvisosYTareas.comunicados : [];
+                if (coms.length > 0) {
+                    listaAvisos.innerHTML = coms.map(c => {
+                        let fecStr = 'Reciente';
+                        try {
+                            const raw = String(c.created_at || c.fecha_creacion || '').replace(' ', 'T').split('.')[0];
+                            const d = new Date(raw);
+                            if (!isNaN(d.getTime())) {
+                                fecStr = d.toLocaleString('es-US', {
+                                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                });
+                            }
+                        } catch(e) {}
 
-                    const esLeido = c.leido;
-                    return `
-                        <div style="background:var(--card-bg); border:1px solid ${esLeido ? 'var(--border)' : '#ef4444'}; border-radius:10px; padding:12px; box-shadow:0 2px 5px rgba(0,0,0,0.04);">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:6px;">
-                                <div style="font-weight:800; font-size:13px; color:var(--text-main);">📢 ${c.titulo}</div>
-                                <span style="background:${esLeido ? '#dcfce7' : '#fee2e2'}; color:${esLeido ? '#166534' : '#991b1b'}; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; flex-shrink:0;">
-                                    ${esLeido ? '✅ LEÍDO' : '🔴 PENDIENTE'}
-                                </span>
+                        const esLeido = c.leido;
+                        return `
+                            <div style="background:var(--card-bg); border:1px solid ${esLeido ? 'var(--border)' : '#ef4444'}; border-radius:10px; padding:12px; box-shadow:0 2px 5px rgba(0,0,0,0.04); margin-bottom:8px;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:6px;">
+                                    <div style="font-weight:800; font-size:13px; color:var(--text-main);">📢 ${c.titulo}</div>
+                                    <span style="background:${esLeido ? '#dcfce7' : '#fee2e2'}; color:${esLeido ? '#166534' : '#991b1b'}; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; flex-shrink:0;">
+                                        ${esLeido ? '✅ LEÍDO' : '🔴 PENDIENTE'}
+                                    </span>
+                                </div>
+                                <div style="font-size:12px; color:var(--text-main); line-height:1.4; white-space:pre-wrap; margin-bottom:8px; background:var(--box-sub-bg); padding:8px; border-radius:6px;">
+                                    ${c.mensaje}
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-sub);">
+                                    <span>📅 ${fecStr} (Seattle PT)</span>
+                                    ${!esLeido ? `
+                                        <button type="button" onclick="confirmarLecturaDesdeModal(${c.id})" style="background:#16a34a; color:white; border:none; border-radius:6px; font-size:11px; font-weight:700; padding:4px 8px; cursor:pointer;">
+                                            ✅ Entendido
+                                        </button>
+                                    ` : ''}
+                                </div>
                             </div>
-                            <div style="font-size:12px; color:var(--text-main); line-height:1.4; white-space:pre-wrap; margin-bottom:8px; background:var(--box-sub-bg); padding:8px; border-radius:6px;">
-                                ${c.mensaje}
-                            </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-sub);">
-                                <span>📅 ${fecStr} (Seattle PT)</span>
-                                ${!esLeido ? `
-                                    <button type="button" onclick="confirmarLecturaDesdeModal(${c.id})" style="background:#16a34a; color:white; border:none; border-radius:6px; font-size:11px; font-weight:700; padding:4px 8px; cursor:pointer;">
-                                        ✅ Entendido
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } else {
-                listaAvisos.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-sub); font-size:13px;">No hay avisos ni comunicados registrados para ti.</div>';
+                        `;
+                    }).join('');
+                } else {
+                    listaAvisos.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-sub); font-size:13px;">No hay avisos ni comunicados registrados para ti.</div>';
+                }
             }
         }
 
@@ -2672,20 +2715,26 @@
             try { cargarListaOficialPersonal(); } catch(e) { console.error("Error lista personal:", e); }
             try { await cargarProyectos(); } catch(e) { console.error("Error cargando proyectos:", e); }
             try { await encenderCamara("user"); } catch(e) { console.warn("Aviso cámara:", e); }
+            // Solicitar permiso de notificaciones nativo de inmediato al abrir la app (igual que la cámara)
             try { solicitarPermisoNotificacionesAutomatico(); } catch(e) {}
             try { cargarMisAvisosYTareas(false); } catch(e) {}
 
-            // En iPhone/Safari el permiso exige interacción táctil: activar al primer toque en la pantalla
-            document.addEventListener('pointerdown', () => {
+            // En iPhone/Safari PWA donde el sistema operativo exige toque de pantalla para el cuadro nativo:
+            const pedirEnPrimerToque = () => {
                 desbloquearAudioContext();
                 solicitarPermisoNotificacionesAutomatico();
-            }, { once: true });
+            };
+            window.addEventListener('pointerdown', pedirEnPrimerToque, { once: true, passive: true });
+            window.addEventListener('touchstart', pedirEnPrimerToque, { once: true, passive: true });
+            window.addEventListener('click', pedirEnPrimerToque, { once: true, passive: true });
 
             // Registrar Service Worker para PWA Offline y Alertas Push
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/static/sw.js').then(async (reg) => {
                     console.log('ServiceWorker registrado:', reg.scope);
-                    suscribirWebPushServiceWorker();
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        suscribirWebPushServiceWorker();
+                    }
                 }).catch(err => console.log('SW Error:', err));
             }
         }

@@ -962,7 +962,7 @@ def api_crear_comunicado(payload: dict):
 
     try:
         from .webpush_service import enviar_webpush_async
-        dest_push = destinos if alcance == "INDIVIDUAL" else None
+        dest_push = destinos if str(alcance).upper() in ("INDIVIDUAL", "PERSONAS", "USUARIOS") else None
         enviar_webpush_async(
             empleados=dest_push,
             titulo=f"📢 {titulo}",

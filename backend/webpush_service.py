@@ -59,28 +59,33 @@ def _ejecutar_envio_push(empleados: list, titulo: str, mensaje: str, url: str):
 
         _asegurar_claves_vapid()
 
-        if not os.path.exists(DB_PATH):
-            return
+        try:
+            from .database import get_connection, normalizar_nombre
+        except ImportError:
+            from database import get_connection, normalizar_nombre
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_connection()
         cursor = conn.cursor()
-
-        # Si empleados es None o 'ALL', enviar a todas las suscripciones activas
-        if not empleados or empleados == "ALL" or "ALL" in empleados:
-            cursor.execute("SELECT empleado_nombre, subscription_json FROM push_subscriptions")
-        else:
-            nombres_busqueda = [str(e).strip() for e in empleados if str(e).strip()]
-            if not nombres_busqueda:
-                conn.close()
-                return
-            placeholders = ",".join(["?"] * len(nombres_busqueda))
-            cursor.execute(f"SELECT empleado_nombre, subscription_json FROM push_subscriptions WHERE empleado_nombre IN ({placeholders})", nombres_busqueda)
-
+        cursor.execute("SELECT empleado_nombre, subscription_json FROM push_subscriptions")
         filas = cursor.fetchall()
         conn.close()
 
         if not filas:
-            logger.info("Aviso WebPush: No hay celulares suscritos para estos destinatarios.")
+            logger.info("Aviso WebPush: No hay celulares suscritos aún en la base de datos.")
+            return
+
+        # Filtrado de destinatarios tolerante a tildes y mayúsculas/minúsculas
+        if not empleados or empleados == "ALL" or "ALL" in empleados:
+            destinatarios_filas = filas
+        else:
+            targets = {normalizar_nombre(e) for e in empleados if e and str(e).strip()}
+            destinatarios_filas = [
+                r for r in filas 
+                if normalizar_nombre(r["empleado_nombre"] if hasattr(r, "keys") else r[0]) in targets
+            ]
+
+        if not destinatarios_filas:
+            logger.info(f"Aviso WebPush: Ninguno de los destinatarios {empleados} tiene celular suscrito.")
             return
 
         payload_json = json.dumps({
@@ -91,7 +96,9 @@ def _ejecutar_envio_push(empleados: list, titulo: str, mensaje: str, url: str):
 
         subs_invalidas = []
 
-        for emp_nombre, sub_str in filas:
+        for row in destinatarios_filas:
+            emp_nombre = row["empleado_nombre"] if hasattr(row, "keys") else row[0]
+            sub_str = row["subscription_json"] if hasattr(row, "keys") else row[1]
             try:
                 sub_info = json.loads(sub_str) if isinstance(sub_str, str) else sub_str
                 # Si sub_info vino anidado
@@ -108,7 +115,7 @@ def _ejecutar_envio_push(empleados: list, titulo: str, mensaje: str, url: str):
                     data=payload_json,
                     vapid_private_key=VAPID_KEY_FILE,
                     vapid_claims={"sub": "mailto:soporte@ryanpacific.com"},
-                    timeout=8
+                    timeout=10
                 )
                 logger.info(f"📲 Notificación Push enviada a '{emp_nombre}' en su celular.")
             except WebPushException as ex:
@@ -121,7 +128,7 @@ def _ejecutar_envio_push(empleados: list, titulo: str, mensaje: str, url: str):
 
         if subs_invalidas:
             try:
-                c2 = sqlite3.connect(DB_PATH)
+                c2 = get_connection()
                 pl = ",".join(["?"] * len(subs_invalidas))
                 c2.execute(f"DELETE FROM push_subscriptions WHERE empleado_nombre IN ({pl})", subs_invalidas)
                 c2.commit()

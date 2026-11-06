@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ryan-pacific-asistencia-v9';
+const CACHE_NAME = 'ryan-pacific-asistencia-v10';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/index.html',
@@ -113,13 +113,14 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: '/static/icons/icon-192.png',
     badge: '/static/icon.png',
-    vibrate: [250, 100, 250, 100, 450],
     data: { url: data.url || '/' },
-    requireInteraction: true,
-    actions: [
-      { action: 'open', title: '👀 Ver Aviso' }
-    ]
+    tag: 'comunicado-' + Date.now(),
+    renotify: true
   };
+  try {
+    options.vibrate = [250, 100, 250, 100, 450];
+  } catch(e) {}
+
   event.waitUntil(
     self.registration.showNotification(data.title || '📢 AVISO DE EMPRESA', options)
   );
