@@ -856,6 +856,17 @@ async def api_asignar_actividades(payload: dict):
         hora_personalizada=hora,
         notas=notas
     )
+
+    try:
+        from .webpush_service import enviar_webpush_async
+        enviar_webpush_async(
+            empleados=empleados,
+            titulo="🔨 Nueva Labor Asignada",
+            mensaje=f"📍 {piso} • {actividad} ({proyecto})"
+        )
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "total_asignados": len(empleados),
@@ -948,6 +959,19 @@ def api_crear_comunicado(payload: dict):
     if not titulo or not mensaje:
         raise HTTPException(status_code=400, detail="Título y mensaje son obligatorios.")
     res = crear_comunicado(titulo, mensaje, tipo_entrega, alcance, destinos)
+
+    try:
+        from .webpush_service import enviar_webpush_async
+        dest_push = destinos if alcance == "INDIVIDUAL" else None
+        enviar_webpush_async(
+            empleados=dest_push,
+            titulo=f"📢 {titulo}",
+            mensaje=mensaje,
+            url="/"
+        )
+    except Exception as e_wp:
+        logger.warning(f"Aviso al enviar push: {e_wp}")
+
     try:
         from .gdrive import sincronizar_db_a_drive_master_async
         sincronizar_db_a_drive_master_async()
@@ -1026,6 +1050,13 @@ def api_confirmar_lectura_comunicado(comunicado_id: int, payload: dict):
     except Exception:
         pass
     return res
+
+
+@app.get("/api/push/vapid_public_key")
+def api_obtener_vapid_key():
+    """Retorna la clave pública VAPID para que el celular suscriba el ServiceWorker a WebPush."""
+    from .webpush_service import obtener_vapid_public_key
+    return {"status": "ok", "public_key": obtener_vapid_public_key()}
 
 
 @app.post("/api/push/subscribe")

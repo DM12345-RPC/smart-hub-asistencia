@@ -441,27 +441,6 @@
             </div>
         </div>
 
-        <!-- BANNER PERMISO NOTIFICACIONES (UNA SOLA VEZ) -->
-        <div id="bannerPermisoNotificaciones" class="hidden" style="margin-bottom:12px; background:linear-gradient(135deg, #1e293b, #0f172a); border:1px solid #3b82f6; border-radius:12px; padding:12px 14px; box-shadow:0 4px 12px rgba(0,0,0,0.25);">
-            <div style="display:flex; align-items:flex-start; gap:10px;">
-                <span style="font-size:24px;">🔔</span>
-                <div style="flex:1;">
-                    <div style="font-size:13px; font-weight:800; color:#ffffff;">¿Activar Alertas & Notificaciones?</div>
-                    <div style="font-size:12px; color:#cbd5e1; margin-top:2px; line-height:1.3;">
-                        Recibe avisos de la empresa y asignaciones de tu capataz con sonido y vibración en tu celular.
-                    </div>
-                    <div style="display:flex; gap:8px; margin-top:8px;">
-                        <button type="button" onclick="solicitarPermisoNotificacionesUsuario()" style="background:#16a34a; color:white; border:none; padding:7px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">
-                            ✅ Activar Notificaciones
-                        </button>
-                        <button type="button" onclick="posponerPermisoNotificaciones()" style="background:#334155; color:#94a3b8; border:none; padding:7px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
-                            Ahora no
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- TARJETA PRINCIPAL -->
         <div class="card">
             
@@ -472,25 +451,6 @@
                     <span id="badgeRol" style="display:none; font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; margin-left:4px;"></span>
                 </div>
                 <button id="btnCambiarTrabajador" class="btn-change-user">Cambiar / Enrolar</button>
-            </div>
-
-            <!-- BARRA DE TAREA Y AVISOS DEL OBRERO -->
-            <div id="barraTareaObrero" onclick="abrirModalMisAvisosYTareas()" style="cursor:pointer; margin-bottom:12px; background:var(--box-sub-bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; transition:background 0.2s;">
-                <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-                    <span style="font-size:20px;">📋</span>
-                    <div style="min-width:0;">
-                        <div style="font-size:10px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.3px;">Mi Labor Hoy:</div>
-                        <div id="lblTareaActual" style="font-size:13px; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            ⚪ Sin labor asignada aún
-                        </div>
-                    </div>
-                </div>
-                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                    <span id="badgeAvisosPendientes" style="display:none; background:#ef4444; color:white; font-size:10px; font-weight:800; padding:2px 6px; border-radius:10px;">
-                        0 avisos
-                    </span>
-                    <span style="font-size:12px; font-weight:700; color:#2563eb;">Consultar ❯</span>
-                </div>
             </div>
 
             <!-- PROYECTO SELECCIONADO -->
@@ -556,6 +516,23 @@
                 <a id="btnIrAdmin" href="/admin" class="hidden" style="display:none; margin-top:8px; background:#334155; color:white; text-decoration:none; padding:10px; border-radius:8px; font-weight:600; font-size:13px; text-align:center;">
                     ⚙️ Abrir Panel Administrativo
                 </a>
+            </div>
+
+            <!-- BOTÓN UNIFICADO: LABORES & AVISOS (Punto 3) -->
+            <div style="margin-top:12px;">
+                <button type="button" id="btnMisLaboresYAvisos" onclick="abrirModalMisAvisosYTareas()" style="width:100%; background:var(--card-bg); border:1px solid #3b82f6; color:var(--text-main); padding:12px 14px; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 6px rgba(0,0,0,0.15); transition:background 0.2s;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <span style="font-size:20px;">📋</span>
+                        <div style="text-align:left; min-width:0;">
+                            <div style="font-size:13px; font-weight:800; color:var(--text-main);">Mis Labores & Avisos</div>
+                            <div id="lblResumenLaborBoton" style="font-size:11px; color:#38bdf8; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Sin labor asignada aún</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span id="badgeBtnLaboresAvisos" style="background:#ef4444; color:white; font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px; display:none;">0</span>
+                        <span style="font-size:16px; color:var(--text-sub);">›</span>
+                    </div>
+                </button>
             </div>
 
             <!-- BOTÓN RESUMEN DE HORAS TRABAJADAS (CONTROLADO POR OBRA Y USUARIO) (Punto 10) -->
@@ -773,10 +750,10 @@
         </div>
     </div>
 
-    <!-- MODAL DE CONSULTA DE TAREAS Y COMUNICADOS PARA EL TRABAJADOR -->
+    <!-- MODAL UNIFICADO: LABORES Y AVISOS (Punto 3 - 1 SOLA VENTANA) -->
     <div id="modalMisAvisosYTareas" class="modal hidden" style="z-index:2300;">
-        <div class="modal-card" style="max-height:88vh; max-width:440px; overflow-y:auto; text-align:left; padding:20px; display:flex; flex-direction:column; gap:14px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
+        <div class="modal-card" style="max-height:88vh; max-width:440px; overflow-y:auto; text-align:left; padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:22px;">📋</span>
                     <div>
@@ -784,49 +761,38 @@
                         <div style="font-size:11px; color:var(--text-sub);">Ryan Pacific • Consulta de jornada</div>
                     </div>
                 </div>
-                <button type="button" onclick="cerrarModalMisAvisosYTareas()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-sub);">✕</button>
+                <button type="button" onclick="cerrarModalMisAvisosYTareas()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-sub); padding:4px;">✕</button>
             </div>
 
-            <!-- BOTONES DE PESTAÑA DENTRO DEL MODAL -->
-            <div style="display:flex; gap:6px; background:var(--box-sub-bg); padding:4px; border-radius:10px; border:1px solid var(--border);">
-                <button type="button" id="btnTabMisTareas" onclick="cambiarTabAvisos('tareas')" style="flex:1; padding:8px 6px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:#2563eb; color:white;">
-                    🔨 Mi Labor Hoy
-                </button>
-                <button type="button" id="btnTabMisComunicados" onclick="cambiarTabAvisos('comunicados')" style="flex:1; padding:8px 6px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:transparent; color:var(--text-sub);">
-                    📢 Avisos Recibidos (<span id="txtCountAvisosModal">0</span>)
-                </button>
-            </div>
-
-            <!-- CONTENIDO PESTAÑA: MI LABOR HOY -->
-            <div id="vistaTabMisTareas" style="display:flex; flex-direction:column; gap:12px;">
+            <!-- SECCIÓN 1: MI LABOR HOY -->
+            <div>
+                <div style="font-size:12px; font-weight:800; color:#3b82f6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <span>🔨</span> <span>Tu Labor Asignada Hoy:</span>
+                </div>
                 <div style="background:var(--box-sub-bg); border:1px solid var(--border); border-radius:12px; padding:14px;">
-                    <div style="font-size:11px; font-weight:800; color:#2563eb; text-transform:uppercase; margin-bottom:8px;">📍 Tarea Asignada Actual:</div>
                     <div id="boxTareaActualDetalle" style="font-size:14px; color:var(--text-main); line-height:1.5;">
                         Cargando labor asignada...
                     </div>
                 </div>
-
-                <div>
-                    <div style="font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase; margin-bottom:6px;">
-                        ⏱️ Historial de Tareas de Hoy:
-                    </div>
-                    <div id="listaHistorialTareas" style="display:flex; flex-direction:column; gap:8px;">
-                        <div style="font-size:12px; color:var(--text-sub); font-style:italic;">Sin cambios registrados hoy.</div>
-                    </div>
-                </div>
             </div>
 
-            <!-- CONTENIDO PESTAÑA: AVISOS Y COMUNICADOS -->
-            <div id="vistaTabMisComunicados" class="hidden" style="display:none; flex-direction:column; gap:10px;">
-                <div id="listaAvisosHistorial" style="display:flex; flex-direction:column; gap:10px; max-height:48vh; overflow-y:auto;">
-                    <div style="text-align:center; padding:20px; color:var(--text-sub); font-size:13px;">
+            <!-- SECCIÓN 2: AVISOS Y COMUNICADOS OFICIALES -->
+            <div>
+                <div style="font-size:12px; font-weight:800; color:#ef4444; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>📢</span> <span>Avisos de la Empresa:</span>
+                    </div>
+                    <span id="txtCountAvisosModal" style="background:var(--box-sub-bg); color:var(--text-sub); font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--border);">0 avisos</span>
+                </div>
+                <div id="listaAvisosHistorial" style="display:flex; flex-direction:column; gap:10px; max-height:36vh; overflow-y:auto;">
+                    <div style="text-align:center; padding:16px; color:var(--text-sub); font-size:13px;">
                         Cargando comunicados...
                     </div>
                 </div>
             </div>
 
-            <button type="button" onclick="cerrarModalMisAvisosYTareas()" class="btn-primary" style="margin-top:6px; background:#334155;">
-                Cerrar
+            <button type="button" onclick="cerrarModalMisAvisosYTareas()" class="btn-primary" style="margin-top:4px; background:#2563eb; width:100%; padding:12px; font-weight:700;">
+                Entendido
             </button>
         </div>
     </div>
@@ -2097,76 +2063,73 @@
             cargarMisAvisosYTareas(false);
         }
 
-        // ================= GESTIÓN DE NOTIFICACIONES Y PERMISOS =================
-        function verificarBannerPermisoNotificaciones() {
-            if (!('Notification' in window)) return;
-            const solicitada = localStorage.getItem('rpcs_notif_solicitada');
-            if (Notification.permission === 'default' && !solicitada) {
-                const banner = document.getElementById('bannerPermisoNotificaciones');
-                if (banner) {
-                    banner.classList.remove('hidden');
-                    banner.style.display = 'block';
-                }
+        // ================= GESTIÓN DE NOTIFICACIONES Y WEBPUSH (Punto 1 y 2) =================
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')
+                .replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
             }
+            return outputArray;
         }
 
-        function posponerPermisoNotificaciones() {
-            localStorage.setItem('rpcs_notif_solicitada', 'pospuesto');
-            const banner = document.getElementById('bannerPermisoNotificaciones');
-            if (banner) {
-                banner.classList.add('hidden');
-                banner.style.display = 'none';
-            }
-        }
-
-        async function solicitarPermisoNotificacionesUsuario() {
+        async function suscribirWebPushServiceWorker() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
             try {
-                if (!('Notification' in window)) {
-                    alert("Tu navegador no soporta notificaciones nativas de sistema.");
+                const reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    const res = await fetch('/api/push/vapid_public_key');
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.public_key) {
+                            sub = await reg.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: urlBase64ToUint8Array(data.public_key)
+                            });
+                        }
+                    }
+                }
+                if (sub) {
+                    const nombre = localStorage.getItem("rpcs_nombre") || "Anonimo";
+                    await fetch('/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            empleado_nombre: nombre,
+                            subscription: (sub.toJSON ? sub.toJSON() : sub)
+                        })
+                    });
+                    console.log("✅ Suscripción WebPush registrada para:", nombre);
+                }
+            } catch (e) {
+                console.warn("Aviso suscripción WebPush:", e);
+            }
+        }
+
+        async function solicitarPermisoNotificacionesAutomatico() {
+            if (!('Notification' in window)) return;
+            try {
+                desbloquearAudioContext();
+                if (Notification.permission === 'granted') {
+                    await suscribirWebPushServiceWorker();
                     return;
                 }
-                desbloquearAudioContext();
-                const permiso = await Notification.requestPermission();
-                localStorage.setItem('rpcs_notif_solicitada', 'true');
-                
-                const banner = document.getElementById('bannerPermisoNotificaciones');
-                if (banner) {
-                    banner.classList.add('hidden');
-                    banner.style.display = 'none';
-                }
-
-                if (permiso === 'granted') {
-                    mostrarToast("🔔 ¡Notificaciones activadas con éxito!");
-                    reproducirSonidoAlertaComunicado();
-                    if ('vibrate' in navigator) navigator.vibrate([150, 80, 150]);
-                    
-                    if ('serviceWorker' in navigator) {
-                        try {
-                            const reg = await navigator.serviceWorker.ready;
-                            reg.showNotification("🔔 Notificaciones Ryan Pacific Activas", {
-                                body: "Recibirás avisos de empresa y labores asignadas en tu celular.",
-                                icon: "/static/icons/icon-192.png",
-                                badge: "/static/icon.png"
-                            });
-
-                            if ('PushManager' in window) {
-                                const sub = await reg.pushManager.getSubscription();
-                                if (sub) {
-                                    const nom = localStorage.getItem("rpcs_nombre") || "Anonimo";
-                                    fetch('/api/push/subscribe', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ nombre: nom, subscription: sub })
-                                    }).catch(()=>{});
-                                }
-                            }
-                        } catch(e) {}
+                if (Notification.permission === 'default') {
+                    const permiso = await Notification.requestPermission();
+                    if (permiso === 'granted') {
+                        await suscribirWebPushServiceWorker();
+                        reproducirSonidoAlertaComunicado();
+                        if ('vibrate' in navigator) navigator.vibrate([150, 80, 150]);
+                        mostrarToast("🔔 ¡Notificaciones activadas!");
                     }
-                } else {
-                    mostrarToast("Aviso: Notificaciones desactivadas.");
                 }
-            } catch(e) {
-                console.warn("Error al solicitar notificaciones:", e);
+            } catch (e) {
+                console.warn("Aviso permiso automático notificaciones:", e);
             }
         }
 
@@ -2175,23 +2138,23 @@
         let idUltimaTareaNotificada = null;
 
         function actualizarBarraTareaActual(tarea) {
-            const lbl = document.getElementById('lblTareaActual');
+            const lbl = document.getElementById('lblResumenLaborBoton');
             if (!lbl) return;
             if (tarea && tarea.actividad) {
                 const pisoStr = tarea.piso ? `📍 ${tarea.piso} • ` : '';
-                lbl.innerHTML = `<span style="color:#2563eb;">${pisoStr}🔨 ${tarea.actividad}</span>`;
+                lbl.innerHTML = `<span style="color:#38bdf8; font-weight:700;">${pisoStr}🔨 ${tarea.actividad}</span>`;
             } else {
-                lbl.innerText = '⚪ Sin labor asignada aún';
+                lbl.innerText = 'Sin labor asignada aún';
             }
         }
 
         function actualizarBadgeAvisosPendientes(cant) {
-            const b = document.getElementById('badgeAvisosPendientes');
+            const b = document.getElementById('badgeBtnLaboresAvisos');
             const txtCount = document.getElementById('txtCountAvisosModal');
-            if (txtCount) txtCount.innerText = cant || 0;
+            if (txtCount) txtCount.innerText = `${cant || 0} aviso${cant === 1 ? '' : 's'}`;
             if (!b) return;
             if (cant > 0) {
-                b.innerText = `${cant} aviso${cant > 1 ? 's' : ''}`;
+                b.innerText = `${cant} NUEVO${cant > 1 ? 'S' : ''}`;
                 b.style.display = 'inline-block';
             } else {
                 b.style.display = 'none';
@@ -2265,7 +2228,6 @@
             if (!modal) return;
             modal.classList.remove('hidden');
             modal.style.display = 'flex';
-            cambiarTabAvisos('tareas');
             await cargarMisAvisosYTareas(false);
             renderizarContenidoModalAvisosYTareas();
         }
@@ -2279,30 +2241,7 @@
         }
 
         function cambiarTabAvisos(tab) {
-            const tabTareas = document.getElementById('btnTabMisTareas');
-            const tabComs = document.getElementById('btnTabMisComunicados');
-            const vistaTareas = document.getElementById('vistaTabMisTareas');
-            const vistaComs = document.getElementById('vistaTabMisComunicados');
-
-            if (tab === 'tareas') {
-                tabTareas.style.background = '#2563eb';
-                tabTareas.style.color = '#ffffff';
-                tabComs.style.background = 'transparent';
-                tabComs.style.color = 'var(--text-sub)';
-                vistaTareas.classList.remove('hidden');
-                vistaTareas.style.display = 'flex';
-                vistaComs.classList.add('hidden');
-                vistaComs.style.display = 'none';
-            } else {
-                tabComs.style.background = '#2563eb';
-                tabComs.style.color = '#ffffff';
-                tabTareas.style.background = 'transparent';
-                tabTareas.style.color = 'var(--text-sub)';
-                vistaComs.classList.remove('hidden');
-                vistaComs.style.display = 'flex';
-                vistaTareas.classList.add('hidden');
-                vistaTareas.style.display = 'none';
-            }
+            // Unificado en 1 sola ventana
         }
 
         function renderizarContenidoModalAvisosYTareas() {
@@ -2733,31 +2672,20 @@
             try { cargarListaOficialPersonal(); } catch(e) { console.error("Error lista personal:", e); }
             try { await cargarProyectos(); } catch(e) { console.error("Error cargando proyectos:", e); }
             try { await encenderCamara("user"); } catch(e) { console.warn("Aviso cámara:", e); }
-            try { verificarBannerPermisoNotificaciones(); } catch(e) {}
+            try { solicitarPermisoNotificacionesAutomatico(); } catch(e) {}
             try { cargarMisAvisosYTareas(false); } catch(e) {}
+
+            // En iPhone/Safari el permiso exige interacción táctil: activar al primer toque en la pantalla
+            document.addEventListener('pointerdown', () => {
+                desbloquearAudioContext();
+                solicitarPermisoNotificacionesAutomatico();
+            }, { once: true });
 
             // Registrar Service Worker para PWA Offline y Alertas Push
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/static/sw.js').then(async (reg) => {
                     console.log('ServiceWorker registrado:', reg.scope);
-                    
-                    // Registrar suscripción Push si el navegador lo permite
-                    if ('Notification' in window && 'PushManager' in window) {
-                        try {
-                            const sub = await reg.pushManager.getSubscription();
-                            if (sub) {
-                                const nom = localStorage.getItem("rpcs_nombre") || "Anonimo";
-                                fetch('/api/push/subscribe', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        empleado_nombre: nom,
-                                        subscription_info: JSON.stringify(sub)
-                                    })
-                                }).catch(()=>{});
-                            }
-                        } catch(e) {}
-                    }
+                    suscribirWebPushServiceWorker();
                 }).catch(err => console.log('SW Error:', err));
             }
         }

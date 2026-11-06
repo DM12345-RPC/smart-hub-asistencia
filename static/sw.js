@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ryan-pacific-asistencia-v8';
+const CACHE_NAME = 'ryan-pacific-asistencia-v9';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/index.html',

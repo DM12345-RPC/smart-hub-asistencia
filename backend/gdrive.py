@@ -29,6 +29,7 @@ _MARCAJES_CATALOGO = []  # Tuplas (norm_fn, fid, d_str, tipo_m)
 _EXACT_NAME_TO_FID = {}
 _INDEX_CARGADO = False
 _INDEX_LOCK = threading.Lock()
+_download_semaphore = threading.BoundedSemaphore(2)
 
 def _normalizar_txt(txt: str) -> str:
     if not txt:
@@ -253,16 +254,24 @@ def cargar_indice_drive(carpeta_id: str = None) -> int:
 
         target_folder = carpeta_id or GDRIVE_FOLDER_ID
         try:
+            files = []
+            page_token = None
             with _drive_lock:
                 q = f"'{target_folder}' in parents and trashed = false"
-                res = service.files().list(
-                    q=q,
-                    pageSize=1000,
-                    fields="files(id, name)",
-                    supportsAllDrives=True,
-                    includeItemsFromAllDrives=True
-                ).execute()
-                files = res.get('files', []) if isinstance(res, dict) else []
+                while True:
+                    res = service.files().list(
+                        q=q,
+                        pageSize=1000,
+                        pageToken=page_token,
+                        fields="nextPageToken, files(id, name)",
+                        supportsAllDrives=True,
+                        includeItemsFromAllDrives=True
+                    ).execute()
+                    f_list = res.get('files', []) if isinstance(res, dict) else []
+                    files.extend(f_list)
+                    page_token = res.get('nextPageToken')
+                    if not page_token:
+                        break
 
             for f in files:
                 fn = f.get('name', '')
@@ -484,27 +493,30 @@ def descargar_foto_desde_drive(nombre_archivo: str, destino_local: str, carpeta_
 
     from googleapiclient.http import MediaIoBaseDownload
     try:
-        with _drive_lock:
-            req = service.files().get_media(fileId=file_id, supportsAllDrives=True)
-            os.makedirs(os.path.dirname(destino_local), exist_ok=True)
-            temp_dest = destino_local + ".tmp"
-            with open(temp_dest, "wb") as f:
-                downloader = MediaIoBaseDownload(f, req)
-                done = False
-                while not done:
-                    _, done = downloader.next_chunk()
+        with _download_semaphore:
+            with _drive_lock:
+                req = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+                dir_dest = os.path.dirname(destino_local)
+                if dir_dest:
+                    os.makedirs(dir_dest, exist_ok=True)
+                temp_dest = destino_local + ".tmp"
+                with open(temp_dest, "wb") as f:
+                    downloader = MediaIoBaseDownload(f, req)
+                    done = False
+                    while not done:
+                        _, done = downloader.next_chunk()
 
-            if os.path.exists(temp_dest) and os.path.getsize(temp_dest) > 100:
-                os.replace(temp_dest, destino_local)
-                logger.info(f"✅ Foto '{base_nom}' descargada desde Drive (ID: {file_id})")
-                return True
-            else:
-                if os.path.exists(temp_dest):
-                    try:
-                        os.remove(temp_dest)
-                    except Exception:
-                        pass
-                return False
+                if os.path.exists(temp_dest) and os.path.getsize(temp_dest) > 100:
+                    os.replace(temp_dest, destino_local)
+                    logger.info(f"✅ Foto '{base_nom}' descargada desde Drive (ID: {file_id})")
+                    return True
+                else:
+                    if os.path.exists(temp_dest):
+                        try:
+                            os.remove(temp_dest)
+                        except Exception:
+                            pass
+                    return False
     except Exception as e:
         logger.warning(f"Aviso descargando foto '{base_nom}' de Drive: {e}")
         return False
