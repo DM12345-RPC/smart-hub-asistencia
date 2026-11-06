@@ -441,6 +441,27 @@
             </div>
         </div>
 
+        <!-- BANNER PERMISO NOTIFICACIONES (UNA SOLA VEZ) -->
+        <div id="bannerPermisoNotificaciones" class="hidden" style="margin-bottom:12px; background:linear-gradient(135deg, #1e293b, #0f172a); border:1px solid #3b82f6; border-radius:12px; padding:12px 14px; box-shadow:0 4px 12px rgba(0,0,0,0.25);">
+            <div style="display:flex; align-items:flex-start; gap:10px;">
+                <span style="font-size:24px;">🔔</span>
+                <div style="flex:1;">
+                    <div style="font-size:13px; font-weight:800; color:#ffffff;">¿Activar Alertas & Notificaciones?</div>
+                    <div style="font-size:12px; color:#cbd5e1; margin-top:2px; line-height:1.3;">
+                        Recibe avisos de la empresa y asignaciones de tu capataz con sonido y vibración en tu celular.
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button type="button" onclick="solicitarPermisoNotificacionesUsuario()" style="background:#16a34a; color:white; border:none; padding:7px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">
+                            ✅ Activar Notificaciones
+                        </button>
+                        <button type="button" onclick="posponerPermisoNotificaciones()" style="background:#334155; color:#94a3b8; border:none; padding:7px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
+                            Ahora no
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TARJETA PRINCIPAL -->
         <div class="card">
             
@@ -451,6 +472,25 @@
                     <span id="badgeRol" style="display:none; font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; margin-left:4px;"></span>
                 </div>
                 <button id="btnCambiarTrabajador" class="btn-change-user">Cambiar / Enrolar</button>
+            </div>
+
+            <!-- BARRA DE TAREA Y AVISOS DEL OBRERO -->
+            <div id="barraTareaObrero" onclick="abrirModalMisAvisosYTareas()" style="cursor:pointer; margin-bottom:12px; background:var(--box-sub-bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; transition:background 0.2s;">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                    <span style="font-size:20px;">📋</span>
+                    <div style="min-width:0;">
+                        <div style="font-size:10px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.3px;">Mi Labor Hoy:</div>
+                        <div id="lblTareaActual" style="font-size:13px; font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            ⚪ Sin labor asignada aún
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                    <span id="badgeAvisosPendientes" style="display:none; background:#ef4444; color:white; font-size:10px; font-weight:800; padding:2px 6px; border-radius:10px;">
+                        0 avisos
+                    </span>
+                    <span style="font-size:12px; font-weight:700; color:#2563eb;">Consultar ❯</span>
+                </div>
             </div>
 
             <!-- PROYECTO SELECCIONADO -->
@@ -733,6 +773,64 @@
         </div>
     </div>
 
+    <!-- MODAL DE CONSULTA DE TAREAS Y COMUNICADOS PARA EL TRABAJADOR -->
+    <div id="modalMisAvisosYTareas" class="modal hidden" style="z-index:2300;">
+        <div class="modal-card" style="max-height:88vh; max-width:440px; overflow-y:auto; text-align:left; padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">📋</span>
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text-main);">Mis Labores & Avisos</h3>
+                        <div style="font-size:11px; color:var(--text-sub);">Ryan Pacific • Consulta de jornada</div>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalMisAvisosYTareas()" style="background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-sub);">✕</button>
+            </div>
+
+            <!-- BOTONES DE PESTAÑA DENTRO DEL MODAL -->
+            <div style="display:flex; gap:6px; background:var(--box-sub-bg); padding:4px; border-radius:10px; border:1px solid var(--border);">
+                <button type="button" id="btnTabMisTareas" onclick="cambiarTabAvisos('tareas')" style="flex:1; padding:8px 6px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:#2563eb; color:white;">
+                    🔨 Mi Labor Hoy
+                </button>
+                <button type="button" id="btnTabMisComunicados" onclick="cambiarTabAvisos('comunicados')" style="flex:1; padding:8px 6px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:transparent; color:var(--text-sub);">
+                    📢 Avisos Recibidos (<span id="txtCountAvisosModal">0</span>)
+                </button>
+            </div>
+
+            <!-- CONTENIDO PESTAÑA: MI LABOR HOY -->
+            <div id="vistaTabMisTareas" style="display:flex; flex-direction:column; gap:12px;">
+                <div style="background:var(--box-sub-bg); border:1px solid var(--border); border-radius:12px; padding:14px;">
+                    <div style="font-size:11px; font-weight:800; color:#2563eb; text-transform:uppercase; margin-bottom:8px;">📍 Tarea Asignada Actual:</div>
+                    <div id="boxTareaActualDetalle" style="font-size:14px; color:var(--text-main); line-height:1.5;">
+                        Cargando labor asignada...
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase; margin-bottom:6px;">
+                        ⏱️ Historial de Tareas de Hoy:
+                    </div>
+                    <div id="listaHistorialTareas" style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="font-size:12px; color:var(--text-sub); font-style:italic;">Sin cambios registrados hoy.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO PESTAÑA: AVISOS Y COMUNICADOS -->
+            <div id="vistaTabMisComunicados" class="hidden" style="display:none; flex-direction:column; gap:10px;">
+                <div id="listaAvisosHistorial" style="display:flex; flex-direction:column; gap:10px; max-height:48vh; overflow-y:auto;">
+                    <div style="text-align:center; padding:20px; color:var(--text-sub); font-size:13px;">
+                        Cargando comunicados...
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" onclick="cerrarModalMisAvisosYTareas()" class="btn-primary" style="margin-top:6px; background:#334155;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+
     <!-- MODAL DE COMUNICADO OFICIAL MANDATORIO / PANTALLA DE BLOQUEO (Punto 11) -->
     <div id="modalComunicadoOficial" class="modal hidden" style="z-index:3000; background:rgba(15,23,42,0.95); backdrop-filter:blur(6px);">
         <div class="modal-card" style="border:2px solid #ef4444; box-shadow:0 0 30px rgba(239,68,68,0.3); text-align:center; max-width:440px;">
@@ -999,22 +1097,67 @@
             } catch (e) {}
         }
 
+        let audioCtxGlobal = null;
+        function desbloquearAudioContext() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!audioCtxGlobal && AudioCtx) {
+                    audioCtxGlobal = new AudioCtx();
+                }
+                if (audioCtxGlobal && audioCtxGlobal.state === 'suspended') {
+                    audioCtxGlobal.resume();
+                }
+            } catch(e) {}
+        }
+        window.addEventListener('click', desbloquearAudioContext, { passive: true });
+        window.addEventListener('touchstart', desbloquearAudioContext, { passive: true });
+
         function reproducirSonidoAlertaComunicado() {
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 if (!AudioCtx) return;
-                const ctx = new AudioCtx();
-                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                if (!audioCtxGlobal) audioCtxGlobal = new AudioCtx();
+                if (audioCtxGlobal.state === 'suspended') audioCtxGlobal.resume();
+                
+                const ctx = audioCtxGlobal;
+                const now = ctx.currentTime;
+                // Chime potente de aviso urgente: Mi (659Hz), Sol# (830Hz), Si (987Hz), Mi agudo (1318Hz)
+                [659.25, 830.61, 987.77, 1318.51].forEach((freq, i) => {
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1));
-                    gain.gain.setValueAtTime(0.7, ctx.currentTime + (i * 0.1));
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.25);
+                    osc.frequency.setValueAtTime(freq, now + (i * 0.11));
+                    gain.gain.setValueAtTime(0.85, now + (i * 0.11));
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.11) + 0.35);
                     osc.connect(gain);
                     gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + (i * 0.1));
-                    osc.stop(ctx.currentTime + (i * 0.1) + 0.28);
+                    osc.start(now + (i * 0.11));
+                    osc.stop(now + (i * 0.11) + 0.38);
+                });
+            } catch (e) {}
+        }
+
+        function reproducirSonidoTareaAsignada() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                if (!audioCtxGlobal) audioCtxGlobal = new AudioCtx();
+                if (audioCtxGlobal.state === 'suspended') audioCtxGlobal.resume();
+                
+                const ctx = audioCtxGlobal;
+                const now = ctx.currentTime;
+                // Doble campana de nueva asignación: La (880Hz), Do# agudo (1108Hz)
+                [880.00, 1108.73].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + (i * 0.14));
+                    gain.gain.setValueAtTime(0.75, now + (i * 0.14));
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.14) + 0.32);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + (i * 0.14));
+                    osc.stop(now + (i * 0.14) + 0.35);
                 });
             } catch (e) {}
         }
@@ -1316,13 +1459,15 @@
         // Intentar sincronizar periódicamente cada 30 segundos
         setInterval(sincronizarLoteSiHayRed, 30000);
 
-        // Verificar periódicamente comunicados oficiales cada 45 segundos
+        // Verificar periódicamente comunicados oficiales y tareas asignadas cada 20 segundos
         setInterval(() => {
             const nom = localStorage.getItem("rpcs_nombre");
             if (nom && navigator.onLine) {
-                verificarComunicadosPendientes(nom, ui.selProyecto ? ui.selProyecto.value : '');
+                const obra = ui.selProyecto ? ui.selProyecto.value : '';
+                verificarComunicadosPendientes(nom, obra);
+                cargarMisAvisosYTareas(true);
             }
-        }, 45000);
+        }, 20000);
 
         let estadoHoyMarcaje = null;
         let obrasAsignadasUsuario = "ALL";
@@ -1877,10 +2022,38 @@
 
             if (modal) modal.classList.remove('hidden');
 
-            // Feedback de alerta sonora y vibración tipo alarma
+            // Feedback de alerta sonora potente y vibración tipo alarma
             reproducirSonidoAlertaComunicado();
             if ("vibrate" in navigator) {
-                navigator.vibrate([250, 100, 250, 100, 450]);
+                navigator.vibrate([300, 100, 300, 100, 450]);
+            }
+
+            // Notificación nativa del sistema (pantalla bloqueada o app en segundo plano)
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    const tituloNotif = `📢 ${com.titulo}`;
+                    const cuerpoNotif = com.mensaje;
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.showNotification(tituloNotif, {
+                                body: cuerpoNotif,
+                                icon: '/static/icons/icon-192.png',
+                                badge: '/static/icon.png',
+                                vibrate: [300, 100, 300, 100, 450],
+                                tag: `comunicado-${com.id}`,
+                                renotify: true,
+                                requireInteraction: true,
+                                data: { url: '/', id: com.id }
+                            });
+                        }).catch(()=>{});
+                    } else {
+                        new Notification(tituloNotif, {
+                            body: cuerpoNotif,
+                            icon: '/static/icons/icon-192.png',
+                            vibrate: [300, 100, 300, 100, 450]
+                        });
+                    }
+                } catch (eNotif) {}
             }
         }
 
@@ -1919,6 +2092,333 @@
                     body: JSON.stringify({ empleado_nombre: nombre, nombre: nombre })
                 }).catch(e => console.warn("Confirmación offline guardada"));
             } catch (e) {}
+
+            // 6. Refrescar contador y estado en memoria
+            cargarMisAvisosYTareas(false);
+        }
+
+        // ================= GESTIÓN DE NOTIFICACIONES Y PERMISOS =================
+        function verificarBannerPermisoNotificaciones() {
+            if (!('Notification' in window)) return;
+            const solicitada = localStorage.getItem('rpcs_notif_solicitada');
+            if (Notification.permission === 'default' && !solicitada) {
+                const banner = document.getElementById('bannerPermisoNotificaciones');
+                if (banner) {
+                    banner.classList.remove('hidden');
+                    banner.style.display = 'block';
+                }
+            }
+        }
+
+        function posponerPermisoNotificaciones() {
+            localStorage.setItem('rpcs_notif_solicitada', 'pospuesto');
+            const banner = document.getElementById('bannerPermisoNotificaciones');
+            if (banner) {
+                banner.classList.add('hidden');
+                banner.style.display = 'none';
+            }
+        }
+
+        async function solicitarPermisoNotificacionesUsuario() {
+            try {
+                if (!('Notification' in window)) {
+                    alert("Tu navegador no soporta notificaciones nativas de sistema.");
+                    return;
+                }
+                desbloquearAudioContext();
+                const permiso = await Notification.requestPermission();
+                localStorage.setItem('rpcs_notif_solicitada', 'true');
+                
+                const banner = document.getElementById('bannerPermisoNotificaciones');
+                if (banner) {
+                    banner.classList.add('hidden');
+                    banner.style.display = 'none';
+                }
+
+                if (permiso === 'granted') {
+                    mostrarToast("🔔 ¡Notificaciones activadas con éxito!");
+                    reproducirSonidoAlertaComunicado();
+                    if ('vibrate' in navigator) navigator.vibrate([150, 80, 150]);
+                    
+                    if ('serviceWorker' in navigator) {
+                        try {
+                            const reg = await navigator.serviceWorker.ready;
+                            reg.showNotification("🔔 Notificaciones Ryan Pacific Activas", {
+                                body: "Recibirás avisos de empresa y labores asignadas en tu celular.",
+                                icon: "/static/icons/icon-192.png",
+                                badge: "/static/icon.png"
+                            });
+
+                            if ('PushManager' in window) {
+                                const sub = await reg.pushManager.getSubscription();
+                                if (sub) {
+                                    const nom = localStorage.getItem("rpcs_nombre") || "Anonimo";
+                                    fetch('/api/push/subscribe', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ nombre: nom, subscription: sub })
+                                    }).catch(()=>{});
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                } else {
+                    mostrarToast("Aviso: Notificaciones desactivadas.");
+                }
+            } catch(e) {
+                console.warn("Error al solicitar notificaciones:", e);
+            }
+        }
+
+        // ================= CONSULTA DE TAREAS Y AVISOS DEL OBRERO =================
+        let cacheMisAvisosYTareas = { tarea_actual: null, historial_tareas: [], comunicados: [] };
+        let idUltimaTareaNotificada = null;
+
+        function actualizarBarraTareaActual(tarea) {
+            const lbl = document.getElementById('lblTareaActual');
+            if (!lbl) return;
+            if (tarea && tarea.actividad) {
+                const pisoStr = tarea.piso ? `📍 ${tarea.piso} • ` : '';
+                lbl.innerHTML = `<span style="color:#2563eb;">${pisoStr}🔨 ${tarea.actividad}</span>`;
+            } else {
+                lbl.innerText = '⚪ Sin labor asignada aún';
+            }
+        }
+
+        function actualizarBadgeAvisosPendientes(cant) {
+            const b = document.getElementById('badgeAvisosPendientes');
+            const txtCount = document.getElementById('txtCountAvisosModal');
+            if (txtCount) txtCount.innerText = cant || 0;
+            if (!b) return;
+            if (cant > 0) {
+                b.innerText = `${cant} aviso${cant > 1 ? 's' : ''}`;
+                b.style.display = 'inline-block';
+            } else {
+                b.style.display = 'none';
+            }
+        }
+
+        async function cargarMisAvisosYTareas(silencioso = false) {
+            const nombre = localStorage.getItem("rpcs_nombre");
+            if (!nombre) return;
+            const obra = ui.selProyecto ? ui.selProyecto.value : '';
+            try {
+                const res = await fetch(`/api/empleado/mis_avisos_y_tareas?nombre=${encodeURIComponent(nombre)}&obra=${encodeURIComponent(obra || '')}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.status !== 'ok') return;
+
+                const tareaAnt = cacheMisAvisosYTareas.tarea_actual;
+                cacheMisAvisosYTareas = data;
+
+                actualizarBarraTareaActual(data.tarea_actual);
+                actualizarBadgeAvisosPendientes(data.pendientes_count || 0);
+
+                // Si se detecta un cambio de labor asignado a mitad de jornada:
+                if (silencioso && data.tarea_actual) {
+                    const esNueva = !tareaAnt || (tareaAnt.id !== data.tarea_actual.id) || (tareaAnt.actividad !== data.tarea_actual.actividad) || (tareaAnt.piso !== data.tarea_actual.piso);
+                    if (esNueva && data.tarea_actual.id !== idUltimaTareaNotificada) {
+                        idUltimaTareaNotificada = data.tarea_actual.id;
+                        notificarNuevaTareaAsignada(data.tarea_actual);
+                    }
+                }
+
+                // Si el modal de consulta está visible, refrescarlo en vivo
+                const modal = document.getElementById('modalMisAvisosYTareas');
+                if (modal && !modal.classList.contains('hidden') && modal.style.display !== 'none') {
+                    renderizarContenidoModalAvisosYTareas();
+                }
+            } catch(e) {
+                console.warn("Aviso al consultar mis avisos y tareas:", e);
+            }
+        }
+
+        function notificarNuevaTareaAsignada(tarea) {
+            reproducirSonidoTareaAsignada();
+            if ('vibrate' in navigator) navigator.vibrate([250, 100, 250]);
+            mostrarToast(`⚡ Nueva labor: ${tarea.piso} • ${tarea.actividad}`);
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    const tit = `⚡ Nueva Labor: ${tarea.piso || 'Obra'}`;
+                    const bod = `Se te asignó: ${tarea.actividad} (Por ${tarea.asignado_por || 'Foreman'})`;
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.showNotification(tit, {
+                                body: bod,
+                                icon: '/static/icons/icon-192.png',
+                                badge: '/static/icon.png',
+                                vibrate: [250, 100, 250],
+                                tag: `tarea-${tarea.id || Date.now()}`,
+                                renotify: true
+                            });
+                        }).catch(()=>{});
+                    } else {
+                        new Notification(tit, { body: bod, icon: '/static/icons/icon-192.png', vibrate: [250, 100, 250] });
+                    }
+                } catch(e) {}
+            }
+        }
+
+        async function abrirModalMisAvisosYTareas() {
+            const modal = document.getElementById('modalMisAvisosYTareas');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            cambiarTabAvisos('tareas');
+            await cargarMisAvisosYTareas(false);
+            renderizarContenidoModalAvisosYTareas();
+        }
+
+        function cerrarModalMisAvisosYTareas() {
+            const modal = document.getElementById('modalMisAvisosYTareas');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
+        }
+
+        function cambiarTabAvisos(tab) {
+            const tabTareas = document.getElementById('btnTabMisTareas');
+            const tabComs = document.getElementById('btnTabMisComunicados');
+            const vistaTareas = document.getElementById('vistaTabMisTareas');
+            const vistaComs = document.getElementById('vistaTabMisComunicados');
+
+            if (tab === 'tareas') {
+                tabTareas.style.background = '#2563eb';
+                tabTareas.style.color = '#ffffff';
+                tabComs.style.background = 'transparent';
+                tabComs.style.color = 'var(--text-sub)';
+                vistaTareas.classList.remove('hidden');
+                vistaTareas.style.display = 'flex';
+                vistaComs.classList.add('hidden');
+                vistaComs.style.display = 'none';
+            } else {
+                tabComs.style.background = '#2563eb';
+                tabComs.style.color = '#ffffff';
+                tabTareas.style.background = 'transparent';
+                tabTareas.style.color = 'var(--text-sub)';
+                vistaComs.classList.remove('hidden');
+                vistaComs.style.display = 'flex';
+                vistaTareas.classList.add('hidden');
+                vistaTareas.style.display = 'none';
+            }
+        }
+
+        function renderizarContenidoModalAvisosYTareas() {
+            const boxDetalle = document.getElementById('boxTareaActualDetalle');
+            const listaHist = document.getElementById('listaHistorialTareas');
+            const listaAvisos = document.getElementById('listaAvisosHistorial');
+            const t = cacheMisAvisosYTareas.tarea_actual;
+
+            // 1. Tarea Actual
+            if (t && t.actividad) {
+                const hIni = t.hora_inicio ? t.hora_inicio.slice(0, 5) : 'Hoy';
+                boxDetalle.innerHTML = `
+                    <div style="font-size:16px; font-weight:800; color:#2563eb; margin-bottom:4px;">
+                        🔨 ${t.actividad}
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--text-sub);">
+                        <div><b>📍 Obra:</b> ${t.proyecto_nombre || 'Asignada'}</div>
+                        <div><b>🏢 Piso / Nivel:</b> ${t.piso || 'N/A'}</div>
+                        <div><b>⏱️ Asignado hoy:</b> ${hIni} (Seattle PT)</div>
+                        <div><b>👤 Asignado por:</b> ${t.asignado_por || 'Foreman'}</div>
+                        ${t.notas ? `<div style="margin-top:4px; padding:6px; background:var(--input-bg); border-radius:6px; font-style:italic;">📝 Notas: ${t.notas}</div>` : ''}
+                    </div>
+                `;
+            } else {
+                boxDetalle.innerHTML = `
+                    <div style="color:var(--text-sub); font-size:13px; text-align:center; padding:10px;">
+                        ⚪ Aún no tienes una labor específica registrada hoy.<br>
+                        <span style="font-size:11px; opacity:0.8;">Tu capataz o foreman te la asignará al iniciar en obra.</span>
+                    </div>
+                `;
+            }
+
+            // 2. Historial de tareas de hoy
+            const hist = cacheMisAvisosYTareas.historial_tareas || [];
+            if (hist.length > 0) {
+                listaHist.innerHTML = hist.map(h => {
+                    const hI = h.hora_inicio ? h.hora_inicio.slice(0, 5) : '';
+                    const hF = h.hora_fin ? h.hora_fin.slice(0, 5) : 'En curso';
+                    const esActual = (!h.hora_fin);
+                    return `
+                        <div style="background:${esActual ? 'var(--card-bg)' : 'var(--box-sub-bg)'}; border:1px solid ${esActual ? '#3b82f6' : 'var(--border)'}; border-radius:8px; padding:8px 10px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:700; color:var(--text-main);">📍 ${h.piso} • 🔨 ${h.actividad}</div>
+                                <div style="font-size:11px; color:var(--text-sub);">Asignado por: ${h.asignado_por || 'Foreman'}</div>
+                            </div>
+                            <span style="font-size:11px; font-weight:700; color:${esActual ? '#16a34a' : 'var(--text-sub)'};">
+                                ${hI} - ${hF}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                listaHist.innerHTML = '<div style="font-size:12px; color:var(--text-sub); font-style:italic; padding:6px 0;">Sin tareas registradas hoy.</div>';
+            }
+
+            // 3. Historial de avisos y comunicados
+            const coms = cacheMisAvisosYTareas.comunicados || [];
+            if (coms.length > 0) {
+                listaAvisos.innerHTML = coms.map(c => {
+                    let fecStr = 'Reciente';
+                    try {
+                        const raw = String(c.created_at || c.fecha_creacion).split('.')[0];
+                        fecStr = new Date(raw).toLocaleString('es-US', {
+                            timeZone: 'America/Los_Angeles',
+                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+                    } catch(e) {}
+
+                    const esLeido = c.leido;
+                    return `
+                        <div style="background:var(--card-bg); border:1px solid ${esLeido ? 'var(--border)' : '#ef4444'}; border-radius:10px; padding:12px; box-shadow:0 2px 5px rgba(0,0,0,0.04);">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:6px;">
+                                <div style="font-weight:800; font-size:13px; color:var(--text-main);">📢 ${c.titulo}</div>
+                                <span style="background:${esLeido ? '#dcfce7' : '#fee2e2'}; color:${esLeido ? '#166534' : '#991b1b'}; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; flex-shrink:0;">
+                                    ${esLeido ? '✅ LEÍDO' : '🔴 PENDIENTE'}
+                                </span>
+                            </div>
+                            <div style="font-size:12px; color:var(--text-main); line-height:1.4; white-space:pre-wrap; margin-bottom:8px; background:var(--box-sub-bg); padding:8px; border-radius:6px;">
+                                ${c.mensaje}
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-sub);">
+                                <span>📅 ${fecStr} (Seattle PT)</span>
+                                ${!esLeido ? `
+                                    <button type="button" onclick="confirmarLecturaDesdeModal(${c.id})" style="background:#16a34a; color:white; border:none; border-radius:6px; font-size:11px; font-weight:700; padding:4px 8px; cursor:pointer;">
+                                        ✅ Entendido
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                listaAvisos.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-sub); font-size:13px;">No hay avisos ni comunicados registrados para ti.</div>';
+            }
+        }
+
+        async function confirmarLecturaDesdeModal(comId) {
+            const nombre = localStorage.getItem("rpcs_nombre") || "Obrero";
+            try {
+                const leidos = JSON.parse(localStorage.getItem("rpcs_comunicados_leidos") || "[]");
+                if (!leidos.some(id => String(id) === String(comId))) {
+                    leidos.push(String(comId));
+                    localStorage.setItem("rpcs_comunicados_leidos", JSON.stringify(leidos));
+                }
+                
+                await fetch(`/api/comunicados/${comId}/confirmar_lectura`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado_nombre: nombre, nombre: nombre })
+                });
+
+                mostrarToast("✅ Aviso confirmado como recibido");
+                await cargarMisAvisosYTareas(false);
+            } catch(e) {
+                mostrarToast("Confirmación guardada localmente");
+            }
         }
 
         // ================= GESTIÓN DE TAREAS Y ACTIVIDADES (FOREMAN) =================
@@ -2233,6 +2733,8 @@
             try { cargarListaOficialPersonal(); } catch(e) { console.error("Error lista personal:", e); }
             try { await cargarProyectos(); } catch(e) { console.error("Error cargando proyectos:", e); }
             try { await encenderCamara("user"); } catch(e) { console.warn("Aviso cámara:", e); }
+            try { verificarBannerPermisoNotificaciones(); } catch(e) {}
+            try { cargarMisAvisosYTareas(false); } catch(e) {}
 
             // Registrar Service Worker para PWA Offline y Alertas Push
             if ('serviceWorker' in navigator) {

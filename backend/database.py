@@ -1434,6 +1434,100 @@ def registrar_lectura_comunicado(comunicado_id: int, empleado_nombre: str):
     conn.close()
     return {"status": "ok", "fecha_lectura": fecha}
 
+def obtener_mis_tareas_y_comunicados(empleado_nombre: str, obra_actual: str = None):
+    """
+    Retorna la tarea asignada hoy y el historial completo de comunicados de la empresa
+    para que el trabajador pueda consultarlos en cualquier momento de su jornada.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    ahora = obtener_ahora_seattle()
+    fecha_hoy = ahora.strftime("%Y-%m-%d")
+
+    # 1. Tareas de hoy (todas las que le asignaron hoy, la primera es la actual)
+    cursor.execute("""
+        SELECT id, fecha, empleado_nombre, proyecto_nombre, piso, actividad, hora_inicio, hora_fin, asignado_por, notas
+        FROM actividades_diarias
+        WHERE fecha = ? AND empleado_nombre = ?
+        ORDER BY id DESC
+    """, (fecha_hoy, empleado_nombre))
+    rows_tareas = [dict(r) for r in cursor.fetchall()]
+    if not rows_tareas:
+        cursor.execute("""
+            SELECT id, fecha, empleado_nombre, proyecto_nombre, piso, actividad, hora_inicio, hora_fin, asignado_por, notas
+            FROM actividades_diarias
+            WHERE fecha = ? AND LOWER(empleado_nombre) = LOWER(?)
+            ORDER BY id DESC
+        """, (fecha_hoy, empleado_nombre))
+        rows_tareas = [dict(r) for r in cursor.fetchall()]
+
+    tarea_actual = rows_tareas[0] if rows_tareas else None
+
+    # 2. Historial de comunicados (leídos y no leídos)
+    target_norm = normalizar_nombre(empleado_nombre)
+    cursor.execute("SELECT comunicado_id, empleado_nombre, fecha_lectura FROM comunicados_lecturas")
+    lecturas = cursor.fetchall()
+    leidos_map = {}
+    for l in lecturas:
+        if normalizar_nombre(l["empleado_nombre"]) == target_norm or str(l["empleado_nombre"]).lower().strip() == str(empleado_nombre).lower().strip():
+            leidos_map[l["comunicado_id"]] = l["fecha_lectura"]
+
+    cursor.execute("""
+        SELECT * FROM comunicados 
+        WHERE activo = 1 
+        ORDER BY id DESC
+        LIMIT 40
+    """)
+    rows_com = cursor.fetchall()
+
+    emp_row = obtener_empleado(empleado_nombre)
+    obras_asignadas = (emp_row["obras_asignadas"] if emp_row else "") or "ALL"
+
+    comunicados_lista = []
+    pendientes_count = 0
+    for r in rows_com:
+        alcance = str(r["alcance"] or "TODOS").upper().strip()
+        destinos = json.loads(r["destinos_json"] or "[]")
+        aplica = False
+
+        if alcance in ("TODOS", "GENERAL", "ALL", "EMPRESA"):
+            aplica = True
+        elif alcance in ("OBRA", "PROYECTO"):
+            if obra_actual and any(d == obra_actual or str(d).lower() == str(obra_actual).lower() for d in destinos):
+                aplica = True
+            elif obras_asignadas == "ALL" or any(d in obras_asignadas for d in destinos):
+                aplica = True
+        elif alcance in ("PERSONAS", "INDIVIDUAL", "USUARIOS"):
+            if any(normalizar_nombre(d) == target_norm or str(d).lower().strip() == str(empleado_nombre).lower().strip() for d in destinos):
+                aplica = True
+
+        if aplica:
+            esta_leido = r["id"] in leidos_map
+            if not esta_leido:
+                pendientes_count += 1
+            comunicados_lista.append({
+                "id": r["id"],
+                "titulo": r["titulo"],
+                "mensaje": r["mensaje"],
+                "tipo_entrega": r["tipo_entrega"],
+                "tipo_alerta": r["tipo_entrega"],
+                "fecha_creacion": r["fecha_creacion"],
+                "created_at": r["fecha_creacion"],
+                "leido": esta_leido,
+                "fecha_lectura": leidos_map.get(r["id"])
+            })
+
+    conn.close()
+    return {
+        "status": "ok",
+        "empleado": empleado_nombre,
+        "fecha": fecha_hoy,
+        "tarea_actual": tarea_actual,
+        "historial_tareas": rows_tareas,
+        "comunicados": comunicados_lista,
+        "pendientes_count": pendientes_count
+    }
+
 def eliminar_comunicado(comunicado_id: int):
     """Elimina o desactiva un comunicado para que deje de aparecer en la app y el historial."""
     conn = get_connection()

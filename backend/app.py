@@ -52,6 +52,7 @@ from .database import (
     eliminar_comunicado,
     actualizar_comunicado,
     obtener_comunicados_pendientes_empleado,
+    obtener_mis_tareas_y_comunicados,
     registrar_lectura_comunicado,
     listar_comunicados_admin,
     guardar_suscripcion_push,
@@ -126,9 +127,12 @@ def panel_administracion_subpath(path: str):
 
 @app.get("/api/empleado_info")
 def api_empleado_info(nombre: str = Query(...)):
-    """Retorna información del empleado, incluyendo rol, obras, permisos y si requiere re-enrolamiento."""
+    """Retorna información del empleado, incluyendo rol, obras, permisos, tarea actual y si requiere re-enrolamiento."""
     emp = obtener_empleado(nombre)
     estado_hoy = obtener_estado_hoy_empleado(nombre)
+    info_extra = obtener_mis_tareas_y_comunicados(nombre)
+    tarea_actual = info_extra.get("tarea_actual")
+    pendientes_comunicados = info_extra.get("pendientes_count", 0)
     
     if not emp:
         # Personal nuevo o aún no registrado: forzar enrolamiento biométrico antes de marcar
@@ -143,7 +147,9 @@ def api_empleado_info(nombre: str = Query(...)):
             "requiere_reenrolamiento": True,
             "bloquear_horas_resumen": False,
             "consentimiento_biometrico": False,
-            "estado_hoy": estado_hoy
+            "estado_hoy": estado_hoy,
+            "tarea_actual": tarea_actual,
+            "pendientes_comunicados": pendientes_comunicados
         }
 
     rol = emp.get("rol", "worker") or "worker"
@@ -167,7 +173,9 @@ def api_empleado_info(nombre: str = Query(...)):
         "requiere_reenrolamiento": requiere_reenrolamiento,
         "bloquear_horas_resumen": bool(bloquear_horas),
         "consentimiento_biometrico": bool(consentimiento),
-        "estado_hoy": estado_hoy
+        "estado_hoy": estado_hoy,
+        "tarea_actual": tarea_actual,
+        "pendientes_comunicados": pendientes_comunicados
     }
 
 @app.post("/api/empleados/{empleado_id}/rol")
@@ -999,6 +1007,12 @@ def api_comunicados_pendientes(nombre: str = Query(...), obra: Optional[str] = Q
     return {"status": "ok", "pendientes": pendientes, "comunicados": pendientes}
 
 
+@app.get("/api/empleado/mis_avisos_y_tareas")
+def api_mis_avisos_y_tareas(nombre: str = Query(...), obra: Optional[str] = Query(None)):
+    """Retorna la tarea asignada hoy y el historial completo de comunicados para consulta del trabajador."""
+    return obtener_mis_tareas_y_comunicados(nombre, obra)
+
+
 @app.post("/api/comunicados/{comunicado_id}/confirmar_lectura")
 def api_confirmar_lectura_comunicado(comunicado_id: int, payload: dict):
     """Registra la firma digital obligatoria de 'Entendido y Recibido'."""
@@ -1017,11 +1031,17 @@ def api_confirmar_lectura_comunicado(comunicado_id: int, payload: dict):
 @app.post("/api/push/subscribe")
 def api_push_subscribe(payload: dict):
     """Registra la suscripción Web Push del celular para alertas de pantalla bloqueada."""
-    nombre = payload.get("nombre", "").strip()
-    sub = payload.get("subscription", {})
-    if not nombre or not sub:
+    nombre = str(payload.get("nombre") or payload.get("empleado_nombre") or "").strip()
+    sub = payload.get("subscription") or payload.get("subscription_info")
+    if isinstance(sub, dict):
+        sub_str = json.dumps(sub)
+    elif isinstance(sub, str):
+        sub_str = sub
+    else:
+        sub_str = ""
+    if not nombre or not sub_str:
         return {"status": "error", "error": "Datos incompletos"}
-    res = guardar_suscripcion_push(nombre, json.dumps(sub))
+    res = guardar_suscripcion_push(nombre, sub_str)
     return res
 
 
