@@ -599,6 +599,50 @@
         </div>
     </div>
 
+    <!-- MODAL GUIA PARA ANDROID (CHROME / SAMSUNG) ULTRA CLARO Y VISUAL -->
+    <div id="modalAndroidGuide" class="modal hidden" style="z-index: 2500;">
+        <div class="modal-card" style="text-align:center; max-width: 380px; background:#ffffff; color:#0f172a; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); padding: 22px 18px;">
+            <div style="font-size:36px; margin-bottom:4px;">🤖📲</div>
+            <h3 style="margin: 0 0 6px 0; font-size: 19px; font-weight: 800; color: #0f172a;">Instalar en tu Android</h3>
+            <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0;">
+                Sigue estos 3 sencillos pasos en <b>Chrome</b> o en tu navegador Android:
+            </p>
+
+            <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-bottom:16px;">
+                <!-- PASO 1 -->
+                <div style="background:#f1f5f9; border: 1px solid #cbd5e1; border-radius:12px; padding: 12px; display:flex; align-items:center; gap:12px;">
+                    <div style="background:#16a34a; color:#ffffff; font-weight:800; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;">1</div>
+                    <div style="font-size:13px; color:#1e293b; line-height:1.4;">
+                        Toca el botón de <b>los 3 puntos</b> 
+                        <span style="display:inline-flex; align-items:center; justify-content:center; background:#dcfce7; color:#16a34a; border-radius:6px; padding:2px 6px; font-weight:800; font-size:13px; margin-left:2px;">⋮</span>
+                        arriba a la derecha en tu navegador.
+                    </div>
+                </div>
+
+                <!-- PASO 2 -->
+                <div style="background:#f1f5f9; border: 1px solid #cbd5e1; border-radius:12px; padding: 12px; display:flex; align-items:center; gap:12px;">
+                    <div style="background:#16a34a; color:#ffffff; font-weight:800; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;">2</div>
+                    <div style="font-size:13px; color:#1e293b; line-height:1.4;">
+                        Selecciona <b>"Instalar aplicación"</b> o <b>"Agregar a la pantalla principal"</b> 
+                        <span style="display:inline-flex; align-items:center; justify-content:center; background:#dcfce7; color:#16a34a; border-radius:6px; padding:2px 6px; font-weight:800; font-size:13px; margin-left:2px;">➕</span>
+                    </div>
+                </div>
+
+                <!-- PASO 3 -->
+                <div style="background:#f1f5f9; border: 1px solid #cbd5e1; border-radius:12px; padding: 12px; display:flex; align-items:center; gap:12px;">
+                    <div style="background:#16a34a; color:#ffffff; font-weight:800; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;">3</div>
+                    <div style="font-size:13px; color:#1e293b; line-height:1.4;">
+                        Presiona <b>"Instalar"</b> para confirmar. ¡Listo! Ya tendrás el icono directo en tu pantalla.
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('modalAndroidGuide').classList.add('hidden')" class="btn-primary" style="background:#16a34a; font-weight:800; font-size:15px; padding:12px; border-radius:12px; width:100%; border:none; color:white; cursor:pointer;">
+                ¡Entendido!
+            </button>
+        </div>
+    </div>
+
     <!-- MODAL DE AYUDA Y PERMISO GPS (Punto 3) -->
     <div id="modalGpsAyuda" class="modal hidden" style="z-index:2100;">
         <div class="modal-card" style="text-align:center;">
@@ -801,7 +845,12 @@
             } else if (isIos) {
                 ui.modalIosGuide.classList.remove('hidden');
             } else {
-                alert("Para instalar la app, abre el menú de tu navegador (los 3 puntos ⋮) y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.");
+                const modAndroid = document.getElementById('modalAndroidGuide');
+                if (modAndroid) {
+                    modAndroid.classList.remove('hidden');
+                } else {
+                    alert("Para instalar la app, abre el menú de tu navegador (los 3 puntos ⋮) y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.");
+                }
             }
         });
 
@@ -867,6 +916,11 @@
                 };
                 videoStream = await navigator.mediaDevices.getUserMedia(constraints);
                 ui.video.srcObject = videoStream;
+                try {
+                    await ui.video.play();
+                } catch (ePlay) {
+                    console.log("Autoplay video check:", ePlay);
+                }
                 if (facing === "environment") {
                     ui.video.classList.add('rear');
                 } else {
@@ -1770,14 +1824,14 @@
         async function verificarComunicadosPendientes(nombre, obra) {
             if (!nombre) return;
             try {
-                const url = `/api/comunicados/pendientes?nombre=${encodeURIComponent(nombre)}&proyecto=${encodeURIComponent(obra || '')}`;
+                const url = `/api/comunicados/pendientes?nombre=${encodeURIComponent(nombre)}&obra=${encodeURIComponent(obra || '')}&proyecto=${encodeURIComponent(obra || '')}`;
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data.status === 'ok' && data.comunicados && data.comunicados.length > 0) {
                     let leidosLocal = [];
                     try { leidosLocal = JSON.parse(localStorage.getItem("rpcs_comunicados_leidos") || "[]"); } catch(e) {}
                     
-                    const pendientesReales = data.comunicados.filter(c => !leidosLocal.includes(c.id));
+                    const pendientesReales = data.comunicados.filter(c => !leidosLocal.some(id => String(id) === String(c.id)));
                     if (pendientesReales.length > 0) {
                         colaComunicados = pendientesReales;
                         mostrarSiguienteComunicado();
@@ -1807,7 +1861,8 @@
             let fechaStr = "Hoy";
             if (com.created_at || com.fecha_creacion) {
                 try {
-                    fechaStr = new Date(com.created_at || com.fecha_creacion).toLocaleString('es-US', {
+                    const rawFec = String(com.created_at || com.fecha_creacion).split('.')[0];
+                    fechaStr = new Date(rawFec).toLocaleString('es-US', {
                         timeZone: 'America/Los_Angeles',
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     });
@@ -1836,8 +1891,8 @@
             // 1. Guardar de inmediato en localStorage para que NUNCA vuelva a saltar
             try {
                 const leidos = JSON.parse(localStorage.getItem("rpcs_comunicados_leidos") || "[]");
-                if (!leidos.includes(comId)) {
-                    leidos.push(comId);
+                if (!leidos.some(id => String(id) === String(comId))) {
+                    leidos.push(String(comId));
                     localStorage.setItem("rpcs_comunicados_leidos", JSON.stringify(leidos));
                 }
             } catch(e) {}
@@ -1847,7 +1902,7 @@
             if (modal) modal.classList.add('hidden');
 
             // 3. Quitar de la cola
-            colaComunicados = colaComunicados.filter(c => c.id !== comId);
+            colaComunicados = colaComunicados.filter(c => String(c.id) !== String(comId));
             comunicadoActualId = null;
 
             // 4. Si había otro comunicado pendiente en cola, abrirlo tras medio segundo
@@ -1863,6 +1918,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ empleado_nombre: nombre, nombre: nombre })
                 }).catch(e => console.warn("Confirmación offline guardada"));
+            } catch (e) {}
+        }
             } catch (e) {}
         }
 

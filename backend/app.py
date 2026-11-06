@@ -75,7 +75,7 @@ os.makedirs(PERFILES_DIR, exist_ok=True)
 
 # Restaurar base de datos maestra desde Google Drive al inicio
 try:
-    from .gdrive import restaurar_db_desde_drive_master, sincronizar_db_a_drive_master_async
+    from .gdrive import restaurar_db_desde_drive_master, sincronizar_db_a_drive_master_async, cargar_indice_drive
     db_file = os.path.join(DATA_DIR, "asistencia.db")
     print("[GDRIVE] Sincronizando con Google Drive al inicio...")
     restaurado = restaurar_db_desde_drive_master()
@@ -83,6 +83,9 @@ try:
         print("[GDRIVE] [OK] Base de datos maestra sincronizada exitosamente desde Google Drive.")
     else:
         print("[GDRIVE] Info: Manteniendo base de datos existente o inicializando nueva.")
+    
+    # Precargar catálogo en memoria para descargas ultra-rápidas O(1)
+    cargar_indice_drive()
 except Exception as e:
     print("[GDRIVE] Aviso: No se pudo verificar sincronización en Drive:", e)
 
@@ -1040,9 +1043,7 @@ def servir_captura(nombre_archivo: str):
     except Exception as e:
         logger.warning(f"No se pudo descargar captura {nombre_archivo} de Drive: {e}")
 
-    placeholder = os.path.join(STATIC_DIR, "icon.png")
-    if os.path.exists(placeholder):
-        return FileResponse(placeholder, media_type="image/png", headers={"Cache-Control": "public, max-age=120"})
+    # Retornar 404 para que el frontend dispare onerror y muestre 'Sin foto' (nunca el logo)
     raise HTTPException(status_code=404, detail="Foto de marcaje no encontrada")
 
 
@@ -1061,9 +1062,10 @@ def servir_perfil(nombre_archivo: str):
     except Exception as e:
         logger.warning(f"No se pudo descargar perfil {nombre_archivo} de Drive: {e}")
 
-    placeholder = os.path.join(STATIC_DIR, "icon.png")
-    if os.path.exists(placeholder):
-        return FileResponse(placeholder, media_type="image/png", headers={"Cache-Control": "public, max-age=120"})
+    # Retornar avatar neutral SVG limpio (nunca recuadro negro ni logo empresarial)
+    avatar_svg = os.path.join(STATIC_DIR, "avatar_default.svg")
+    if os.path.exists(avatar_svg):
+        return FileResponse(avatar_svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
     raise HTTPException(status_code=404, detail="Foto de perfil no encontrada")
 
 
