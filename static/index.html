@@ -548,27 +548,53 @@
         </div>
     </div>
 
-    <!-- MODAL GUIA PARA IPHONE (SAFARI) MEJORADO CON FLECHA ANIMADA (Punto 9) -->
-    <div id="modalIosGuide" class="modal hidden">
-        <div class="modal-card" style="text-align:center;">
-            <div style="font-size:38px; margin-bottom:4px;">📲</div>
-            <h3 style="margin-top:0;">Instalar en la Pantalla de tu iPhone</h3>
-            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">
-                Sigue estos 2 sencillos pasos en Safari para tener el icono oficial:
+    <!-- MODAL GUIA PARA IPHONE (SAFARI) ULTRA CLARO Y VISUAL (Punto 9) -->
+    <div id="modalIosGuide" class="modal hidden" style="z-index: 2500;">
+        <div class="modal-card" style="text-align:center; max-width: 380px; background:#ffffff; color:#0f172a; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); padding: 22px 18px;">
+            <div style="font-size:36px; margin-bottom:4px;">📲</div>
+            <h3 style="margin: 0 0 6px 0; font-size: 19px; font-weight: 800; color: #0f172a;">Instalar en la Pantalla de tu iPhone</h3>
+            <p style="font-size: 13px; color: #64748b; margin: 0 0 16px 0;">
+                Sigue estos 3 pasos en <b>Safari</b> para tener el icono oficial en tu pantalla:
             </p>
-            <div style="background:#0f172a; padding:14px; border-radius:12px; text-align:left; font-size:14px; margin-bottom:14px; border:1px solid #334155; line-height:1.6;">
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                    <span style="background:#2563eb; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">1</span>
-                    <div>Toca el botón <b>Compartir</b> <span style="font-size:20px; color:#38bdf8; vertical-align:middle;">⎋</span> (el cuadrito con flecha abajo en tu Safari).</div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-bottom:16px;">
+                <!-- PASO 1 -->
+                <div style="background:#f1f5f9; border: 1px solid #cbd5e1; border-radius:12px; padding: 12px; display:flex; align-items:center; gap:12px;">
+                    <div style="background:#007aff; color:#ffffff; font-weight:800; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;">1</div>
+                    <div style="font-size:13px; color:#1e293b; line-height:1.4;">
+                        En la barra inferior de Safari, toca el botón <b>Compartir</b> 
+                        <span style="display:inline-flex; align-items:center; justify-content:center; background:#e0f2fe; color:#0284c7; border-radius:6px; padding:2px 6px; font-weight:800; font-size:13px; margin-left:2px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                        </span>
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">(El cuadrito con la flecha hacia arriba)</div>
+                    </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="background:#2563eb; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">2</span>
-                    <div>Desliza hacia abajo y toca <b>"Agregar al inicio"</b> <span style="font-size:18px; color:#34d399; vertical-align:middle;">➕</span>.</div>
+
+                <!-- PASO 2 -->
+                <div style="background:#f1f5f9; border: 1px solid #cbd5e1; border-radius:12px; padding: 12px; display:flex; align-items:center; gap:12px;">
+                    <div style="background:#007aff; color:#ffffff; font-weight:800; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;">2</div>
+                    <div style="font-size:13px; color:#1e293b; line-height:1.4;">
+                        Desliza hacia abajo en el menú y toca <b>"Agregar a pantalla de inicio"</b> 
+                        <span style="display:inline-flex; align-items:center; justify-content:center; background:#dcfce7; color:#16a34a; border-radius:6px; padding:2px 6px; font-weight:800; font-size:13px; margin-left:2px;">➕</span>
+                    </div>
+                </div>
+
+                <!-- PASO 3 -->
+                <div style="background:#f1f5f9; border: 1px solid #cbd5e1; border-radius:12px; padding: 12px; display:flex; align-items:center; gap:12px;">
+                    <div style="background:#007aff; color:#ffffff; font-weight:800; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px;">3</div>
+                    <div style="font-size:13px; color:#1e293b; line-height:1.4;">
+                        Arriba a la derecha toca <b>"Agregar"</b>. ¡Y listo! Ya tendrás tu app instalada.
+                    </div>
                 </div>
             </div>
-            <div class="arrow-bounce-down">⬇️</div>
-            <button onclick="document.getElementById('modalIosGuide').classList.add('hidden')" class="btn-primary" style="margin-top:8px;">
-                Entendido
+
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; margin-bottom:12px;">
+                <span style="font-size:11px; font-weight:700; color:#0284c7; text-transform:uppercase; letter-spacing:0.5px;">Toca aquí abajo en Safari</span>
+                <div class="arrow-bounce-down" style="font-size:26px; line-height:1;">⬇️</div>
+            </div>
+
+            <button onclick="document.getElementById('modalIosGuide').classList.add('hidden')" class="btn-primary" style="background:#007aff; font-weight:800; font-size:15px; padding:12px; border-radius:12px; width:100%; border:none; color:white; cursor:pointer;">
+                Entendido, ir a Safari
             </button>
         </div>
     </div>
@@ -1054,6 +1080,16 @@
                 return;
             }
 
+            // 0. Bloqueo Infranqueable de Biometría:
+            // Si el trabajador ya marcó ENTRADA hoy (está en jornada activa), no se le interrumpe para permitirle marcar su SALIDA normalmente.
+            const enJornadaActiva = (estadoHoyMarcaje && estadoHoyMarcaje.estado === "ACTIVO");
+            if (window.perfilRequiereBiometria && (!enJornadaActiva || tipo === "ENTRADA")) {
+                alert(`⚠️ IDENTIFICACIÓN BIOMÉTRICA OBLIGATORIA:\n\nHola ${obrero}, antes de iniciar tu jornada debes completar tu registro biométrico oficial con tu consentimiento legal.\n\nPresiona Aceptar para tomar tus fotos.`);
+                const tel = localStorage.getItem("rpcs_telefono") || "";
+                iniciarProcesoEnrolamiento(obrero, tel);
+                return;
+            }
+
             // 1. Verificación Antidoble Marcaje en Frontend:
             if (tipo === "ENTRADA" && estadoHoyMarcaje && estadoHoyMarcaje.estado === "ACTIVO") {
                 alert(`⚠️ Ya registraste tu ENTRADA hoy a las ${estadoHoyMarcaje.hora || ''} en ${estadoHoyMarcaje.proyecto || 'obra'}.\n\nNo se permite doble entrada. Solo debes marcar SALIDA al terminar tu jornada laboral.`);
@@ -1226,6 +1262,14 @@
         // Intentar sincronizar periódicamente cada 30 segundos
         setInterval(sincronizarLoteSiHayRed, 30000);
 
+        // Verificar periódicamente comunicados oficiales cada 45 segundos
+        setInterval(() => {
+            const nom = localStorage.getItem("rpcs_nombre");
+            if (nom && navigator.onLine) {
+                verificarComunicadosPendientes(nom, ui.selProyecto ? ui.selProyecto.value : '');
+            }
+        }, 45000);
+
         let estadoHoyMarcaje = null;
         let obrasAsignadasUsuario = "ALL";
 
@@ -1381,11 +1425,6 @@
             ui.lblTrabajador.innerText = nom;
             ui.modalOnboarding.classList.add('hidden');
             verificarRolUsuario(nom);
-
-            // Preguntar si desea enrolar su biometría en el servidor
-            if (confirm(`¿Deseas registrar tu biometría facial para ${nom} ahora mismo?`)) {
-                iniciarProcesoEnrolamiento(nom, tel);
-            }
         });
 
         async function ejecutarEnrolamientoFacial(nombre, telefono) {
@@ -1421,7 +1460,8 @@
                 const res = await fetch("/api/enrolar", { method: "POST", body: fd });
                 const data = await res.json();
                 if (data.status === "ok") {
-                    alert(`✅ ¡Excelente! Tu biometría ha quedado registrada con ${data.total_vectores} perfiles.`);
+                    window.perfilRequiereBiometria = false;
+                    alert(`✅ ¡Excelente! Tu biometría oficial ha quedado registrada con ${data.total_vectores} perfiles.`);
                     verificarRolUsuario(nombre);
                 } else {
                     alert("Aviso: " + (data.error || "No se pudo completar el registro biométrico. Podrás enrolarte después."));
@@ -1618,10 +1658,17 @@
                         }
                     }
 
-                    // Forzar re-enrolamiento si admin lo solicitó (Punto 2)
-                    if (data.requiere_reenrolamiento) {
+                    // Verificación biométrica obligatoria y protección de jornada activa:
+                    const esEnrolado = (data.enrolado === true || data.enrolado === 1);
+                    const requiereReenrol = (data.requiere_reenrolamiento === true || data.requiere_reenrolamiento === 1);
+                    window.perfilRequiereBiometria = (!esEnrolado || requiereReenrol);
+
+                    // Si ya marcó entrada hoy (está trabajando), NO interrumpirlo con popup para no perjudicar su jornada:
+                    const enJornadaActiva = (data.estado_hoy && data.estado_hoy.estado === 'ACTIVO');
+
+                    if (window.perfilRequiereBiometria && !enJornadaActiva) {
                         setTimeout(() => {
-                            alert("⚠️ AVISO IMPORTANTE DE IDENTIDAD:\n\nLa administración ha solicitado actualizar tu registro fotográfico biométrico. Por favor toma tus fotos actualizadas para continuar.");
+                            alert("⚠️ IDENTIFICACIÓN BIOMÉTRICA REQUERIDA:\n\nTu usuario requiere registrar su biometría facial oficial con consentimiento legal para habilitar el marcado de asistencia.\n\nPor favor toma tus fotos oficiales a continuación.");
                             iniciarProcesoEnrolamiento(nombre, data.telefono || '');
                         }, 600);
                     }

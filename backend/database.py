@@ -1,8 +1,17 @@
 import sqlite3
 import json
 import os
+import re
+import unicodedata
 from datetime import datetime
 import zoneinfo
+
+def normalizar_nombre(texto: str) -> str:
+    """Normaliza un nombre quitando tildes/acentos, colapsando espacios múltiples y en minúsculas."""
+    if not texto:
+        return ""
+    norm_txt = unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('utf-8')
+    return re.sub(r'\s+', ' ', norm_txt).strip().lower()
 
 # Zona horaria oficial de las obras: Seattle, Washington (Pacific Time)
 SEATTLE_TZ = zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -215,46 +224,144 @@ def init_db():
     conn.commit()
     conn.close()
 
+    # Sincronizar automáticamente la lista oficial de personal.txt a la tabla empleados
+    try:
+        sincronizar_personal_txt_a_db()
+    except Exception as e:
+        print("Aviso: no se pudo sincronizar personal.txt a SQLite:", e)
+
 # ----------------- OPERACIONES DE EMPLEADOS -----------------
+
+def sincronizar_personal_txt_a_db():
+    """
+    Sincroniza todos los nombres de personal.txt en la tabla empleados de la base de datos SQLite.
+    - No sobrescribe a empleados existentes que ya tienen biometría registrada.
+    - Inserta a los nuevos con requiere_reenrolamiento = 1 y vectores_json = '[]'.
+    - Limpia los dobles espacios.
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    personal_txt = os.path.join(base_dir, "personal.txt")
+    if not os.path.exists(personal_txt):
+        return {"status": "ok", "insertados": 0}
+
+    nombres_txt = []
+    try:
+        with open(personal_txt, "r", encoding="utf-8") as f:
+            for l in f:
+                l = l.strip()
+                if l and not l.startswith("#"):
+                    nombres_txt.append(re.sub(r'\s+', ' ', l))
+    except Exception:
+        try:
+            with open(personal_txt, "r", encoding="latin-1") as f:
+                for l in f:
+                    l = l.strip()
+                    if l and not l.startswith("#"):
+                        nombres_txt.append(re.sub(r'\s+', ' ', l))
+        except Exception:
+            return {"status": "error", "error": "No se pudo leer personal.txt"}
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nombre FROM empleados")
+    existentes = cursor.fetchall()
+    norm_map = {normalizar_nombre(r["nombre"]): r["nombre"] for r in existentes}
+
+    insertados = 0
+    ahora = obtener_ahora_seattle().isoformat()
+    for nom in nombres_txt:
+        if not nom:
+            continue
+        nom_norm = normalizar_nombre(nom)
+        if nom_norm not in norm_map:
+            try:
+                cursor.execute("""
+                    INSERT INTO empleados (
+                        nombre, telefono, puesto, vectores_json, fecha_registro, 
+                        activo, rol, obras_asignadas, requiere_reenrolamiento, 
+                        bloquear_horas_resumen, consentimiento_biometrico
+                    ) VALUES (?, '', 'Obrero / Campo', '[]', ?, 1, 'worker', 'ALL', 1, 0, 0)
+                """, (nom, ahora))
+                norm_map[nom_norm] = nom
+                insertados += 1
+            except Exception:
+                pass
+
+    if insertados > 0:
+        conn.commit()
+    conn.close()
+    return {"status": "ok", "insertados": insertados}
 
 def guardar_o_actualizar_empleado(nombre, telefono, puesto, nuevos_vectores, foto_perfil=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, vectores_json, foto_perfil FROM empleados WHERE nombre = ?", (nombre,))
-    row = cursor.fetchone()
+    
+    # Buscar si ya existe por coincidencia exacta o normalizada (tildes/espacios)
+    emp_existente = obtener_empleado(nombre)
+    emp_id = emp_existente["id"] if emp_existente else None
 
-    if row:
-        vectores_existentes = json.loads(row["vectores_json"])
+    if emp_id:
+        cursor.execute("SELECT id, vectores_json, foto_perfil FROM empleados WHERE id = ?", (emp_id,))
+        row = cursor.fetchone()
+        vectores_existentes = json.loads(row["vectores_json"]) if row["vectores_json"] else []
         vectores_existentes.extend(nuevos_vectores)
         if len(vectores_existentes) > 5:
             vectores_existentes = vectores_existentes[-5:]
         
         foto_final = foto_perfil if foto_perfil else row["foto_perfil"]
+        tel_final = telefono if telefono else (emp_existente.get("telefono") or "")
         cursor.execute("""
         UPDATE empleados 
-        SET vectores_json = ?, puesto = ?, telefono = ?, foto_perfil = ?, requiere_reenrolamiento = 0
+        SET vectores_json = ?, puesto = ?, telefono = ?, foto_perfil = ?, requiere_reenrolamiento = 0, consentimiento_biometrico = 1
         WHERE id = ?
-        """, (json.dumps(vectores_existentes), puesto, telefono, foto_final, row["id"]))
+        """, (json.dumps(vectores_existentes), puesto or "Obrero / Campo", tel_final, foto_final, emp_id))
     else:
         cursor.execute("""
-        INSERT INTO empleados (nombre, telefono, puesto, foto_perfil, vectores_json, fecha_registro, requiere_reenrolamiento)
-        VALUES (?, ?, ?, ?, ?, ?, 0)
-        """, (nombre, telefono, puesto, foto_perfil, json.dumps(nuevos_vectores), obtener_ahora_seattle().isoformat()))
+        INSERT INTO empleados (
+            nombre, telefono, puesto, foto_perfil, vectores_json, fecha_registro, 
+            requiere_reenrolamiento, activo, rol, obras_asignadas, bloquear_horas_resumen, consentimiento_biometrico
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 0, 1, 'worker', 'ALL', 0, 1)
+        """, (
+            re.sub(r'\s+', ' ', str(nombre)).strip(),
+            telefono or "",
+            puesto or "Obrero / Campo",
+            foto_perfil,
+            json.dumps(nuevos_vectores),
+            obtener_ahora_seattle().isoformat()
+        ))
 
     conn.commit()
     conn.close()
 
 def obtener_empleado(nombre):
+    if not nombre or not str(nombre).strip():
+        return None
+    nombre_limpio = re.sub(r'\s+', ' ', str(nombre)).strip()
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM empleados WHERE nombre = ? AND activo = 1", (nombre,))
+    # 1. Búsqueda exacta
+    cursor.execute("SELECT * FROM empleados WHERE nombre = ? AND activo = 1", (nombre_limpio,))
     row = cursor.fetchone()
+    # 2. Búsqueda case-insensitive
+    if not row:
+        cursor.execute("SELECT * FROM empleados WHERE LOWER(nombre) = LOWER(?) AND activo = 1", (nombre_limpio,))
+        row = cursor.fetchone()
+    # 3. Búsqueda normalizada (ignora tildes y espacios)
+    if not row:
+        target_norm = normalizar_nombre(nombre_limpio)
+        cursor.execute("SELECT * FROM empleados WHERE activo = 1")
+        for r in cursor.fetchall():
+            if normalizar_nombre(r["nombre"]) == target_norm:
+                row = r
+                break
     conn.close()
     if row:
         d = dict(row)
         d["vectores"] = json.loads(d["vectores_json"]) if d.get("vectores_json") else []
         d["requiere_reenrolamiento"] = d.get("requiere_reenrolamiento", 0)
         d["bloquear_horas_resumen"] = d.get("bloquear_horas_resumen", 0)
+        d["consentimiento_biometrico"] = d.get("consentimiento_biometrico", 0)
         return d
     return None
 
@@ -264,7 +371,11 @@ def listar_empleados():
     cursor.execute("""
     SELECT id, nombre, telefono, puesto, COALESCE(rol, 'worker') as rol, 
            COALESCE(obras_asignadas, 'ALL') as obras_asignadas,
-           foto_perfil, fecha_registro, activo 
+           foto_perfil, fecha_registro, activo,
+           COALESCE(requiere_reenrolamiento, 0) as requiere_reenrolamiento,
+           COALESCE(bloquear_horas_resumen, 0) as bloquear_horas_resumen,
+           COALESCE(consentimiento_biometrico, 0) as consentimiento_biometrico,
+           (CASE WHEN LENGTH(COALESCE(vectores_json, '[]')) > 10 AND COALESCE(requiere_reenrolamiento, 0) = 0 THEN 1 ELSE 0 END) as enrolado
     FROM empleados 
     WHERE activo = 1 
     ORDER BY nombre ASC
@@ -294,23 +405,15 @@ def actualizar_obras_empleado(empleado_id, obras_str):
     return True
 
 def obtener_rol_empleado(nombre):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT rol FROM empleados WHERE nombre = ? AND activo = 1", (nombre,))
-    row = cursor.fetchone()
-    conn.close()
-    if row and row["rol"]:
-        return row["rol"]
+    emp = obtener_empleado(nombre)
+    if emp and emp.get("rol"):
+        return emp["rol"]
     return "worker"
 
 def obtener_obras_empleado(nombre):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT obras_asignadas FROM empleados WHERE nombre = ? AND activo = 1", (nombre,))
-    row = cursor.fetchone()
-    conn.close()
-    if row and row["obras_asignadas"]:
-        return row["obras_asignadas"]
+    emp = obtener_empleado(nombre)
+    if emp and emp.get("obras_asignadas"):
+        return emp["obras_asignadas"]
     return "ALL"
 
 def obtener_estado_hoy_empleado(nombre):
@@ -320,18 +423,38 @@ def obtener_estado_hoy_empleado(nombre):
     - 'SALIO' si su último marcaje HOY en Seattle fue SALIDA.
     - 'SIN_MARCAJE' si no tiene ningún registro hoy en Seattle.
     """
+    if not nombre or not str(nombre).strip():
+        return {
+            "estado": "SIN_MARCAJE",
+            "ultimo_tipo": None,
+            "hora": None,
+            "proyecto": None,
+            "marcaje_id": None
+        }
+
     conn = get_connection()
     cursor = conn.cursor()
     hoy_seattle = obtener_fecha_seattle_hoy()
 
-    # 1. Consultar marcajes que pertenezcan a la fecha de hoy en Seattle
+    emp = obtener_empleado(nombre)
+    nombre_oficial = emp["nombre"] if emp else re.sub(r'\s+', ' ', str(nombre)).strip()
+    target_norm = normalizar_nombre(nombre)
+
+    # 1. Consultar marcajes que pertenezcan a la fecha de hoy en Seattle por coincidencia flexible
     cursor.execute("""
-        SELECT id, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
+        SELECT id, empleado_nombre, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
         FROM marcajes
-        WHERE empleado_nombre = ? AND (timestamp_local LIKE ? OR timestamp_servidor LIKE ?)
-        ORDER BY id DESC LIMIT 1
-    """, (nombre, f"{hoy_seattle}%", f"{hoy_seattle}%"))
-    row = cursor.fetchone()
+        WHERE (timestamp_local LIKE ? OR timestamp_servidor LIKE ?)
+        ORDER BY id DESC
+    """, (f"{hoy_seattle}%", f"{hoy_seattle}%"))
+    marcajes_hoy = cursor.fetchall()
+
+    row = None
+    for m in marcajes_hoy:
+        m_nom = m["empleado_nombre"]
+        if m_nom == nombre or m_nom == nombre_oficial or normalizar_nombre(m_nom) == target_norm:
+            row = m
+            break
 
     if row:
         tipo = (row["tipo"] or "").upper()
@@ -357,12 +480,18 @@ def obtener_estado_hoy_empleado(nombre):
     # Auto-cierre de jornadas pasadas: si su último marcaje en la historia fue ENTRADA de un día anterior,
     # cerrar esa jornada automáticamente a las 23:59:59 del día de origen para no dejarlo trabado.
     cursor.execute("""
-        SELECT id, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
+        SELECT id, empleado_nombre, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
         FROM marcajes
-        WHERE empleado_nombre = ?
-        ORDER BY id DESC LIMIT 1
-    """, (nombre,))
-    ultimo_historico = cursor.fetchone()
+        ORDER BY id DESC LIMIT 500
+    """)
+    historicos = cursor.fetchall()
+    ultimo_historico = None
+    for h in historicos:
+        h_nom = h["empleado_nombre"]
+        if h_nom == nombre or h_nom == nombre_oficial or normalizar_nombre(h_nom) == target_norm:
+            ultimo_historico = h
+            break
+
     if ultimo_historico and (ultimo_historico["tipo"] or "").upper() == "ENTRADA":
         ts_ant = ultimo_historico["timestamp_local"] or ultimo_historico["timestamp_servidor"] or ""
         fecha_ant = ts_ant[:10] if len(ts_ant) >= 10 else hoy_seattle
@@ -375,13 +504,13 @@ def obtener_estado_hoy_empleado(nombre):
                     metodo_ubicacion, similitud_facial, estado_auditoria,
                     offline_sincronizado, notas
                 ) VALUES (?, 'SALIDA', ?, ?, ?, NULL, NULL, 0, 0, 'AUTO_SISTEMA', 100.0, 'APROBADO', 1, 'SALIDA AUTOMÁTICA (FIN DE TURNO)')
-            """, (nombre, ts_salida_auto, ts_salida_auto, ultimo_historico["proyecto_nombre"]))
+            """, (ultimo_historico["empleado_nombre"], ts_salida_auto, ts_salida_auto, ultimo_historico["proyecto_nombre"]))
             # Cerrar actividades abiertas del turno anterior
             cursor.execute("""
                 UPDATE actividades_diarias
                 SET hora_fin = '23:59:59'
                 WHERE empleado_nombre = ? AND fecha = ? AND (hora_fin IS NULL OR hora_fin = '')
-            """, (nombre, fecha_ant))
+            """, (ultimo_historico["empleado_nombre"], fecha_ant))
             conn.commit()
 
     conn.close()
@@ -1048,7 +1177,7 @@ def forzar_reenrolamiento_empleados(empleado_ids: list = None, todos: bool = Fal
     """
     conn = get_connection()
     cursor = conn.cursor()
-    if todos:
+    if todos or not empleado_ids:
         cursor.execute("UPDATE empleados SET vectores_json = '[]', requiere_reenrolamiento = 1")
     elif empleado_ids:
         placeholders = ",".join(["?"] * len(empleado_ids))
@@ -1215,10 +1344,17 @@ def crear_comunicado(titulo, mensaje, tipo_entrega="IN_APP", alcance="TODOS", de
     cursor = conn.cursor()
     destinos_json = json.dumps(destinos or [])
     fecha = obtener_ahora_seattle().isoformat()
+    alc_norm = str(alcance or "TODOS").upper().strip()
+    if alc_norm in ("GENERAL", "ALL", "EMPRESA"):
+        alc_norm = "TODOS"
+    elif alc_norm == "PROYECTO":
+        alc_norm = "OBRA"
+    elif alc_norm in ("INDIVIDUAL", "USUARIOS"):
+        alc_norm = "PERSONAS"
     cursor.execute("""
         INSERT INTO comunicados (titulo, mensaje, tipo_entrega, alcance, destinos_json, fecha_creacion, activo)
         VALUES (?, ?, ?, ?, ?, ?, 1)
-    """, (titulo, mensaje, tipo_entrega, alcance, destinos_json, fecha))
+    """, (titulo, mensaje, tipo_entrega, alc_norm, destinos_json, fecha))
     com_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -1231,7 +1367,8 @@ def obtener_comunicados_pendientes_empleado(empleado_nombre: str, obra_actual: s
         SELECT c.* FROM comunicados c
         WHERE c.activo = 1 
           AND c.id NOT IN (
-              SELECT comunicado_id FROM comunicados_lecturas WHERE empleado_nombre = ?
+              SELECT comunicado_id FROM comunicados_lecturas 
+              WHERE lower(trim(empleado_nombre)) = lower(trim(?))
           )
         ORDER BY c.id DESC
     """, (empleado_nombre,))
@@ -1239,24 +1376,24 @@ def obtener_comunicados_pendientes_empleado(empleado_nombre: str, obra_actual: s
     pendientes = []
 
     # Obtener obras asignadas del empleado
-    cursor.execute("SELECT obras_asignadas FROM empleados WHERE nombre = ?", (empleado_nombre,))
-    emp_row = cursor.fetchone()
+    emp_row = obtener_empleado(empleado_nombre)
     obras_asignadas = (emp_row["obras_asignadas"] if emp_row else "") or "ALL"
+    target_norm = normalizar_nombre(empleado_nombre)
 
     for r in rows:
-        alcance = r["alcance"]
+        alcance = str(r["alcance"] or "TODOS").upper().strip()
         destinos = json.loads(r["destinos_json"] or "[]")
         aplica = False
 
-        if alcance == "TODOS":
+        if alcance in ("TODOS", "GENERAL", "ALL", "EMPRESA"):
             aplica = True
-        elif alcance == "OBRA":
-            if obra_actual and obra_actual in destinos:
+        elif alcance in ("OBRA", "PROYECTO"):
+            if obra_actual and any(d == obra_actual or str(d).lower() == str(obra_actual).lower() for d in destinos):
                 aplica = True
             elif obras_asignadas == "ALL" or any(d in obras_asignadas for d in destinos):
                 aplica = True
-        elif alcance == "PERSONAS":
-            if empleado_nombre in destinos:
+        elif alcance in ("PERSONAS", "INDIVIDUAL", "USUARIOS"):
+            if any(normalizar_nombre(d) == target_norm or str(d).lower().strip() == str(empleado_nombre).lower().strip() for d in destinos):
                 aplica = True
 
         if aplica:
@@ -1265,7 +1402,9 @@ def obtener_comunicados_pendientes_empleado(empleado_nombre: str, obra_actual: s
                 "titulo": r["titulo"],
                 "mensaje": r["mensaje"],
                 "tipo_entrega": r["tipo_entrega"],
-                "fecha_creacion": r["fecha_creacion"]
+                "tipo_alerta": r["tipo_entrega"],
+                "fecha_creacion": r["fecha_creacion"],
+                "created_at": r["fecha_creacion"]
             })
 
     conn.close()
@@ -1290,6 +1429,10 @@ def listar_comunicados_admin():
     comunicados = [dict(r) for r in cursor.fetchall()]
     for c in comunicados:
         c["destinos"] = json.loads(c["destinos_json"] or "[]")
+        c["created_at"] = c.get("fecha_creacion")
+        c["target_tipo"] = c.get("alcance")
+        c["target_valor"] = c.get("destinos_json")
+        c["tipo_alerta"] = c.get("tipo_entrega")
         cursor.execute("SELECT empleado_nombre, fecha_lectura FROM comunicados_lecturas WHERE comunicado_id = ?", (c["id"],))
         c["lecturas"] = [dict(r) for r in cursor.fetchall()]
         c["total_lecturas"] = len(c["lecturas"])

@@ -336,3 +336,67 @@ def restaurar_db_desde_drive_master(carpeta_id: str = None) -> bool:
             global _drive_service
             _drive_service = None
             return False
+
+
+def descargar_foto_desde_drive(nombre_archivo: str, destino_local: str, carpeta_id: str = None) -> bool:
+    """
+    Busca y descarga una foto (perfil o captura) desde Google Drive al disco local
+    cuando Render recrea el contenedor y el archivo físico no existe en disco.
+    """
+    if not nombre_archivo:
+        return False
+    
+    # Extraer token único de búsqueda (ej. hash o parte única del nombre)
+    limpio = os.path.basename(nombre_archivo).replace(".jpg", "").replace(".png", "")
+    token = limpio.split("_")[-1] if "_" in limpio else limpio
+    if len(token) < 4:
+        token = limpio
+
+    with _drive_lock:
+        service = obtener_servicio_drive()
+        if not service:
+            return False
+
+        target_folder = carpeta_id or GDRIVE_FOLDER_ID
+        try:
+            from googleapiclient.http import MediaIoBaseDownload
+            
+            # Buscar coincidencia por token único o por nombre exacto en Drive
+            q = f"'{target_folder}' in parents and name contains '{token}' and trashed = false"
+            res = service.files().list(
+                q=q, 
+                supportsAllDrives=True, 
+                includeItemsFromAllDrives=True, 
+                fields="files(id, name)",
+                pageSize=5
+            ).execute()
+            files = res.get('files', []) if isinstance(res, dict) else []
+            if not files:
+                return False
+
+            file_id = files[0]['id']
+            req = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+            os.makedirs(os.path.dirname(destino_local), exist_ok=True)
+
+            temp_dest = destino_local + ".tmp"
+            with open(temp_dest, "wb") as f:
+                downloader = MediaIoBaseDownload(f, req)
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+
+            if os.path.exists(temp_dest) and os.path.getsize(temp_dest) > 100:
+                os.replace(temp_dest, destino_local)
+                logger.info(f"✅ Foto '{nombre_archivo}' descargada exitosamente de Drive (ID: {file_id})")
+                return True
+            else:
+                if os.path.exists(temp_dest):
+                    try:
+                        os.remove(temp_dest)
+                    except Exception:
+                        pass
+                return False
+        except Exception as e:
+            logger.warning(f"No se pudo descargar foto '{nombre_archivo}' de Drive: {e}")
+            return False
+

@@ -123,27 +123,43 @@ def panel_administracion_subpath(path: str):
 def api_empleado_info(nombre: str = Query(...)):
     """Retorna información del empleado, incluyendo rol, obras, permisos y si requiere re-enrolamiento."""
     emp = obtener_empleado(nombre)
-    rol = emp.get("rol", "worker") if emp else "worker"
-    if not rol:
-        rol = "worker"
-    obras = emp.get("obras_asignadas", "ALL") if emp else "ALL"
-    if not obras:
-        obras = "ALL"
     estado_hoy = obtener_estado_hoy_empleado(nombre)
-    requiere_reenrolamiento = emp.get("requiere_reenrolamiento", 0) if emp else 0
-    bloquear_horas = emp.get("bloquear_horas_resumen", 0) if emp else 0
-    consentimiento = emp.get("consentimiento_biometrico", 0) if emp else 0
-    enrolado = (emp is not None and len(emp.get("vectores", [])) > 0 and requiere_reenrolamiento == 0)
+    
+    if not emp:
+        # Personal nuevo o aún no registrado: forzar enrolamiento biométrico antes de marcar
+        return {
+            "status": "ok",
+            "exists": False,
+            "nombre": nombre,
+            "rol": "worker",
+            "obras_asignadas": "ALL",
+            "telefono": "",
+            "enrolado": False,
+            "requiere_reenrolamiento": True,
+            "bloquear_horas_resumen": False,
+            "consentimiento_biometrico": False,
+            "estado_hoy": estado_hoy
+        }
+
+    rol = emp.get("rol", "worker") or "worker"
+    obras = emp.get("obras_asignadas", "ALL") or "ALL"
+    bloquear_horas = emp.get("bloquear_horas_resumen", 0)
+    consentimiento = emp.get("consentimiento_biometrico", 0)
+    vectores = emp.get("vectores", [])
+    
+    # Enrolado si tiene vectores faciales y no tiene pendiente el re-enrolamiento
+    enrolado = bool(len(vectores) > 0 and emp.get("requiere_reenrolamiento", 0) == 0)
+    requiere_reenrolamiento = bool(emp.get("requiere_reenrolamiento", 0) or not enrolado)
 
     return {
         "status": "ok",
-        "exists": emp is not None,
-        "nombre": nombre,
+        "exists": True,
+        "nombre": emp.get("nombre", nombre),
         "rol": rol,
         "obras_asignadas": obras,
-        "telefono": emp.get("telefono", "") if emp else "",
+        "telefono": emp.get("telefono", ""),
         "enrolado": enrolado,
-        "requiere_reenrolamiento": bool(requiere_reenrolamiento),
+        "requiere_reenrolamiento": requiere_reenrolamiento,
         "bloquear_horas_resumen": bool(bloquear_horas),
         "consentimiento_biometrico": bool(consentimiento),
         "estado_hoy": estado_hoy
@@ -345,7 +361,7 @@ def api_eliminar_empleado(empleado_id: int):
 def api_forzar_reenrolamiento(payload: dict):
     """Permite invalidar biometrías obsoletas para forzar nueva foto de perfil."""
     empleado_ids = payload.get("empleado_ids", [])
-    todos = bool(payload.get("todos", False))
+    todos = bool(payload.get("todos", False) or (payload.get("forzar") and not empleado_ids))
     res = forzar_reenrolamiento_empleados(empleado_ids, todos)
     try:
         from .gdrive import sincronizar_db_a_drive_master_async
@@ -358,7 +374,10 @@ def api_forzar_reenrolamiento(payload: dict):
 @app.post("/api/empleados/{empleado_id}/permiso_horas")
 def api_empleado_permiso_horas(empleado_id: int, payload: dict):
     """Bloquea o permite la visualización de horas trabajadas para un empleado específico."""
-    bloquear = int(payload.get("bloquear_horas_resumen", 0))
+    bloquear_val = payload.get("bloquear_horas_resumen")
+    if bloquear_val is None:
+        bloquear_val = payload.get("bloquear", 0)
+    bloquear = 1 if bool(bloquear_val) else 0
     actualizar_permiso_horas_empleado(empleado_id, bloquear)
     try:
         from .gdrive import sincronizar_db_a_drive_master_async
@@ -891,11 +910,17 @@ def api_record_actividades_empleado(
 @app.post("/api/comunicados")
 def api_crear_comunicado(payload: dict):
     """Crea y despacha un comunicado a toda la empresa, a una obra o a obreros específicos."""
-    titulo = payload.get("titulo", "").strip()
-    mensaje = payload.get("mensaje", "").strip()
-    tipo_entrega = payload.get("tipo_entrega", "IN_APP").upper() # PUSH o IN_APP
-    alcance = payload.get("alcance", "TODOS").upper() # TODOS, OBRA, PERSONAS
-    destinos = payload.get("destinos", [])
+    titulo = str(payload.get("titulo", "")).strip()
+    mensaje = str(payload.get("mensaje", "")).strip()
+    tipo_entrega = str(payload.get("tipo_entrega") or payload.get("tipo_alerta") or "IN_APP").upper()
+    alcance = str(payload.get("alcance") or payload.get("target_tipo") or "TODOS").upper()
+    destinos = payload.get("destinos") if payload.get("destinos") is not None else payload.get("target_valor", [])
+    if isinstance(destinos, str):
+        try:
+            destinos = json.loads(destinos)
+        except Exception:
+            destinos = [destinos] if destinos else []
+
     if not titulo or not mensaje:
         raise HTTPException(status_code=400, detail="Título y mensaje son obligatorios.")
     res = crear_comunicado(titulo, mensaje, tipo_entrega, alcance, destinos)
@@ -917,13 +942,13 @@ def api_listar_comunicados():
 def api_comunicados_pendientes(nombre: str = Query(...), obra: Optional[str] = Query(None)):
     """Verifica si el trabajador tiene avisos o comunicados pendientes de confirmar."""
     pendientes = obtener_comunicados_pendientes_empleado(nombre, obra)
-    return {"status": "ok", "pendientes": pendientes}
+    return {"status": "ok", "pendientes": pendientes, "comunicados": pendientes}
 
 
 @app.post("/api/comunicados/{comunicado_id}/confirmar_lectura")
 def api_confirmar_lectura_comunicado(comunicado_id: int, payload: dict):
     """Registra la firma digital obligatoria de 'Entendido y Recibido'."""
-    nombre = payload.get("nombre", "").strip()
+    nombre = str(payload.get("nombre") or payload.get("empleado_nombre") or "").strip()
     if not nombre:
         raise HTTPException(status_code=400, detail="Nombre del trabajador requerido.")
     res = registrar_lectura_comunicado(comunicado_id, nombre)
@@ -952,8 +977,16 @@ def servir_captura(nombre_archivo: str):
     ruta = os.path.join(CAPTURAS_DIR, nombre_archivo)
     if os.path.exists(ruta):
         return FileResponse(ruta)
-    # Si la foto no existe localmente (por ejemplo tras un reinicio de contenedor efímero),
-    # servir el icono oficial para evitar 404s en el navegador y en los logs
+    
+    # Intentar descargar de Google Drive si falta en disco efímero de Render
+    try:
+        from .gdrive import descargar_foto_desde_drive
+        descargado = descargar_foto_desde_drive(nombre_archivo, ruta)
+        if descargado and os.path.exists(ruta):
+            return FileResponse(ruta)
+    except Exception as e:
+        logger.warning(f"No se pudo descargar captura {nombre_archivo} de Drive: {e}")
+
     placeholder = os.path.join(STATIC_DIR, "icon.png")
     if os.path.exists(placeholder):
         return FileResponse(placeholder, media_type="image/png")
@@ -965,6 +998,16 @@ def servir_perfil(nombre_archivo: str):
     ruta = os.path.join(PERFILES_DIR, nombre_archivo)
     if os.path.exists(ruta):
         return FileResponse(ruta)
+    
+    # Intentar descargar de Google Drive si falta en disco efímero de Render
+    try:
+        from .gdrive import descargar_foto_desde_drive
+        descargado = descargar_foto_desde_drive(nombre_archivo, ruta)
+        if descargado and os.path.exists(ruta):
+            return FileResponse(ruta)
+    except Exception as e:
+        logger.warning(f"No se pudo descargar perfil {nombre_archivo} de Drive: {e}")
+
     placeholder = os.path.join(STATIC_DIR, "icon.png")
     if os.path.exists(placeholder):
         return FileResponse(placeholder, media_type="image/png")

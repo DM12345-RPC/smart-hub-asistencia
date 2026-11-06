@@ -1582,13 +1582,18 @@
                 const res = await fetch(`/api/empleados/${id}/permiso_horas`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bloquear: nuevoBloqueo === 1 })
+                    body: JSON.stringify({ 
+                        bloquear: nuevoBloqueo === 1,
+                        bloquear_horas_resumen: nuevoBloqueo === 1 ? 1 : 0
+                    })
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {
+                    const empLocal = datosEmpleados.find(e => e.id === id);
+                    if (empLocal) empLocal.bloquear_horas_resumen = (nuevoBloqueo === 1 ? 1 : 0);
                     cargarEmpleadosAdmin();
                 } else {
-                    alert("Error al cambiar permiso: " + data.error);
+                    alert("Error al cambiar permiso: " + (data.error || 'Desconocido'));
                 }
             } catch (e) {
                 alert("Error de red");
@@ -1871,7 +1876,7 @@
                                     </div>
                                 </div>
                                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                    <button onclick="abrirConfigurarObraModal(${p.id}, '${pNombreEsc}', '${pPisosEsc}', '${pActsEsc}', ${p.mostrar_horas_obreros !== undefined ? p.mostrar_horas_obreros : 1})" class="btn" style="background:#2563eb; font-size:11px; padding:5px 9px;">
+                                    <button onclick="abrirConfigurarObraModal(${p.id})" class="btn" style="background:#2563eb; font-size:11px; padding:5px 9px;">
                                         ⚙️ Pisos & Horas
                                     </button>
                                     <a href="/api/qr_proyecto/${p.id}" target="_blank" download="QR_${p.nombre}.png" class="btn btn-outline" style="font-size:11px; padding:5px 9px;">
@@ -1906,13 +1911,18 @@
             }
         }
 
-        function abrirConfigurarObraModal(id, nombre, pisos, actividades, mostrarHoras) {
-            document.getElementById('confObraId').value = id;
-            document.getElementById('confObraTitulo').innerText = `Configurar: ${nombre}`;
-            document.getElementById('confObraPisos').value = pisos || '';
-            document.getElementById('confObraActividades').value = actividades || '';
+        function abrirConfigurarObraModal(id) {
+            const p = datosProyectos.find(item => item.id == id);
+            if (!p) {
+                console.warn("Obra no encontrada por ID:", id, datosProyectos);
+                return;
+            }
+            document.getElementById('confObraId').value = p.id;
+            document.getElementById('confObraTitulo').innerText = `Configurar: ${p.nombre}`;
+            document.getElementById('confObraPisos').value = p.pisos || '';
+            document.getElementById('confObraActividades').value = p.actividades || '';
             const chk = document.getElementById('confObraMostrarHoras');
-            if (chk) chk.checked = (mostrarHoras === 1 || mostrarHoras === true);
+            if (chk) chk.checked = (p.mostrar_horas_obreros !== 0);
             const modal = document.getElementById('modalConfigObra');
             modal.classList.remove('hidden');
         }
@@ -2117,6 +2127,23 @@
             btn.disabled = true;
             btn.innerText = "🚀 Enviando Comunicado...";
 
+            let destinosArr = [];
+            let alcanceFinal = 'TODOS';
+            if (alcance === 'PROYECTO') {
+                alcanceFinal = 'OBRA';
+                const obraVal = document.getElementById('comSelectObra').value;
+                if (!obraVal) return alert("Por favor selecciona la obra destinataria.");
+                destinosArr = [obraVal];
+            } else if (alcance === 'INDIVIDUAL') {
+                alcanceFinal = 'PERSONAS';
+                const checks = document.querySelectorAll('.chk-com-emp:checked');
+                destinosArr = Array.from(checks).map(c => c.value);
+                if (destinosArr.length === 0) return alert("Por favor marca al menos un trabajador destinatario.");
+            } else {
+                alcanceFinal = 'TODOS';
+                destinosArr = ['ALL'];
+            }
+
             try {
                 const res = await fetch('/api/comunicados', {
                     method: 'POST',
@@ -2125,8 +2152,11 @@
                         titulo: titulo,
                         mensaje: mensaje,
                         tipo_alerta: tipoAlerta,
-                        target_tipo: alcance,
-                        target_valor: targetValor,
+                        tipo_entrega: tipoAlerta === 'PUSH_ALERT' ? 'PUSH' : (tipoAlerta === 'AMBOS' ? 'AMBOS' : 'IN_APP'),
+                        target_tipo: alcanceFinal,
+                        alcance: alcanceFinal,
+                        target_valor: JSON.stringify(destinosArr),
+                        destinos: destinosArr,
                         creado_por: 'Administración'
                     })
                 });
@@ -2155,19 +2185,32 @@
                 const data = await res.json();
                 if (data.status === 'ok' && data.comunicados && data.comunicados.length > 0) {
                     container.innerHTML = data.comunicados.map(c => {
-                        const fecha = new Date(c.created_at).toLocaleString('es-US', { timeZone: 'America/Los_Angeles' });
-                        let targetLabel = '🏢 Toda la Empresa';
-                        if (c.target_tipo === 'PROYECTO') targetLabel = `🏗️ Obra: ${c.target_valor}`;
-                        else if (c.target_tipo === 'INDIVIDUAL') {
+                        const rawDate = c.fecha_creacion || c.created_at;
+                        let fecha = 'Reciente';
+                        if (rawDate) {
                             try {
-                                const list = JSON.parse(c.target_valor);
-                                targetLabel = `👤 ${list.length} Trabajador(es)`;
+                                fecha = new Date(rawDate).toLocaleString('es-US', { timeZone: 'America/Los_Angeles' });
                             } catch(e) {
-                                targetLabel = '👤 Selección Individual';
+                                fecha = String(rawDate).replace('T', ' ').slice(0, 19);
                             }
                         }
+                        let targetLabel = '🏢 Toda la Empresa';
+                        const alc = c.alcance || c.target_tipo || 'TODOS';
+                        let dests = c.destinos || [];
+                        if (typeof c.target_valor === 'string' && c.target_valor.startsWith('[')) {
+                            try { dests = JSON.parse(c.target_valor); } catch(e) {}
+                        } else if (c.target_valor) {
+                            dests = [c.target_valor];
+                        }
 
-                        const alertLabel = c.tipo_alerta === 'PUSH_ALERT' ? '🚨 Alerta Push' : (c.tipo_alerta === 'AMBOS' ? '🔥 Push + Bloqueo' : '📋 Bloqueo App');
+                        if (alc === 'PROYECTO' || alc === 'OBRA') {
+                            targetLabel = `🏗️ Obra: ${Array.isArray(dests) ? dests.join(', ') : dests}`;
+                        } else if (alc === 'INDIVIDUAL' || alc === 'PERSONAS') {
+                            targetLabel = Array.isArray(dests) ? `👤 ${dests.length} Trabajador(es)` : '👤 Selección Individual';
+                        }
+
+                        const alertType = c.tipo_alerta || c.tipo_entrega || 'IN_APP';
+                        const alertLabel = alertType === 'PUSH_ALERT' || alertType === 'PUSH' ? '🚨 Alerta Push' : (alertType === 'AMBOS' ? '🔥 Push + Bloqueo' : '📋 Bloqueo App');
 
                         return `
                             <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:12px; box-shadow:var(--shadow);">
