@@ -49,6 +49,8 @@ from .database import (
     obtener_resumen_horas_obrero,
     obtener_directorio_personal,
     crear_comunicado,
+    eliminar_comunicado,
+    actualizar_comunicado,
     obtener_comunicados_pendientes_empleado,
     registrar_lectura_comunicado,
     listar_comunicados_admin,
@@ -342,8 +344,8 @@ def api_generar_qr_imprimible(proyecto_id: int):
 # ---------------- API DE EMPLEADOS Y BIOMETRÍA ----------------
 
 @app.get("/api/empleados")
-def api_listar_empleados():
-    return {"status": "ok", "empleados": listar_empleados()}
+def api_listar_empleados(todos: bool = False):
+    return {"status": "ok", "empleados": listar_empleados(solo_enrolados=not todos)}
 
 
 @app.delete("/api/empleados/{empleado_id}")
@@ -543,13 +545,24 @@ def _procesar_un_marcaje_interno(payload: dict) -> dict:
 
     empleado = obtener_empleado(nombre)
 
-    # 0. Verificación de Re-enrolamiento Biométrico Obligatorio (Punto 2)
-    if empleado and (empleado.get("requiere_reenrolamiento") == 1 or not empleado.get("vectores")):
-        return {
-            "status": "error",
-            "error_code": "REQUIERE_REENROLAMIENTO",
-            "error": f"Hola {nombre}. La empresa ha solicitado que actualices tu registro biométrico facial antes de continuar. Por favor toma tu foto oficial ahora."
-        }
+    # 0. Verificación de Biometría Obligatoria (Nuevo personal o Re-enrolamiento):
+    # Si es SALIDA y ya tiene una ENTRADA hoy, permitirle salir para no perjudicar su registro de jornada.
+    # Si es ENTRADA o no está en jornada activa, exigir enrolamiento biométrico.
+    necesita_biometria = False
+    if not empleado or not empleado.get("vectores") or empleado.get("requiere_reenrolamiento") == 1:
+        necesita_biometria = True
+
+    if necesita_biometria:
+        # Permitir salida de jornada activa si ya marcó entrada hoy
+        estado_hoy_actual = obtener_estado_hoy_empleado(nombre)
+        ya_esta_trabajando = (estado_hoy_actual and estado_hoy_actual.get("estado") == "ACTIVO")
+        
+        if not (tipo == "SALIDA" and ya_esta_trabajando):
+            return {
+                "status": "error",
+                "error_code": "REQUIERE_REENROLAMIENTO",
+                "error": f"Hola {nombre}. La empresa requiere tu registro biométrico facial oficial antes de iniciar tu jornada. Por favor toma tu foto oficial ahora."
+            }
 
     # 0.1 Verificación Antidoble Marcaje: Impedir registrar ENTRADA si ya está ACTIVO hoy en Seattle
     if tipo == "ENTRADA":
@@ -683,7 +696,7 @@ def _procesar_un_marcaje_interno(payload: dict) -> dict:
             from backend.gdrive import subir_foto_async
             fecha_hora_str = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             nombre_limpio_emp = nombre.replace(" ", "_")
-            nombre_foto_drive = f"{fecha_hora_str}_{tipo}_{proy_nombre}_{nombre_limpio_emp}.jpg"
+            nombre_foto_drive = f"{fecha_hora_str}_{tipo}_{proy_nombre}_{nombre_limpio_emp}_{nombre_archivo}.jpg"
             subir_foto_async(ruta_completa, nombre_foto_drive)
         except Exception as e_gdrive:
             print("Aviso: no se pudo iniciar subida a Google Drive:", e_gdrive)
@@ -938,6 +951,44 @@ def api_listar_comunicados():
     return {"status": "ok", "comunicados": listar_comunicados_admin()}
 
 
+@app.delete("/api/comunicados/{comunicado_id}")
+def api_eliminar_comunicado(comunicado_id: int):
+    """Elimina un comunicado para que no siga apareciendo en los celulares de los trabajadores."""
+    res = eliminar_comunicado(comunicado_id)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return res
+
+
+@app.put("/api/comunicados/{comunicado_id}")
+def api_actualizar_comunicado(comunicado_id: int, payload: dict):
+    """Permite modificar el título, texto, tipo de alerta o destinatarios de un comunicado emitido."""
+    titulo = str(payload.get("titulo", "")).strip()
+    mensaje = str(payload.get("mensaje", "")).strip()
+    tipo_entrega = str(payload.get("tipo_entrega") or payload.get("tipo_alerta") or "IN_APP").upper()
+    alcance = str(payload.get("alcance") or payload.get("target_tipo") or "TODOS").upper()
+    destinos = payload.get("destinos") if payload.get("destinos") is not None else payload.get("target_valor", [])
+    if isinstance(destinos, str):
+        try:
+            destinos = json.loads(destinos)
+        except Exception:
+            destinos = [destinos] if destinos else []
+
+    if not titulo or not mensaje:
+        raise HTTPException(status_code=400, detail="Título y mensaje son obligatorios.")
+
+    res = actualizar_comunicado(comunicado_id, titulo, mensaje, tipo_entrega, alcance, destinos)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return res
+
+
 @app.get("/api/comunicados/pendientes")
 def api_comunicados_pendientes(nombre: str = Query(...), obra: Optional[str] = Query(None)):
     """Verifica si el trabajador tiene avisos o comunicados pendientes de confirmar."""
@@ -971,25 +1022,27 @@ def api_push_subscribe(payload: dict):
     return res
 
 
-# Servir fotos de capturas y de perfiles oficiales
+# Servir fotos de capturas y de perfiles oficiales con caché HTTP ultra-rápida (30 días)
+CACHE_HEADERS_FOTOS = {"Cache-Control": "public, max-age=2592000, immutable"}
+
 @app.get("/data/capturas/{nombre_archivo}")
 def servir_captura(nombre_archivo: str):
     ruta = os.path.join(CAPTURAS_DIR, nombre_archivo)
     if os.path.exists(ruta):
-        return FileResponse(ruta)
+        return FileResponse(ruta, headers=CACHE_HEADERS_FOTOS)
     
     # Intentar descargar de Google Drive si falta en disco efímero de Render
     try:
         from .gdrive import descargar_foto_desde_drive
         descargado = descargar_foto_desde_drive(nombre_archivo, ruta)
         if descargado and os.path.exists(ruta):
-            return FileResponse(ruta)
+            return FileResponse(ruta, headers=CACHE_HEADERS_FOTOS)
     except Exception as e:
         logger.warning(f"No se pudo descargar captura {nombre_archivo} de Drive: {e}")
 
     placeholder = os.path.join(STATIC_DIR, "icon.png")
     if os.path.exists(placeholder):
-        return FileResponse(placeholder, media_type="image/png")
+        return FileResponse(placeholder, media_type="image/png", headers={"Cache-Control": "public, max-age=120"})
     raise HTTPException(status_code=404, detail="Foto de marcaje no encontrada")
 
 
@@ -997,20 +1050,20 @@ def servir_captura(nombre_archivo: str):
 def servir_perfil(nombre_archivo: str):
     ruta = os.path.join(PERFILES_DIR, nombre_archivo)
     if os.path.exists(ruta):
-        return FileResponse(ruta)
+        return FileResponse(ruta, headers=CACHE_HEADERS_FOTOS)
     
     # Intentar descargar de Google Drive si falta en disco efímero de Render
     try:
         from .gdrive import descargar_foto_desde_drive
         descargado = descargar_foto_desde_drive(nombre_archivo, ruta)
         if descargado and os.path.exists(ruta):
-            return FileResponse(ruta)
+            return FileResponse(ruta, headers=CACHE_HEADERS_FOTOS)
     except Exception as e:
         logger.warning(f"No se pudo descargar perfil {nombre_archivo} de Drive: {e}")
 
     placeholder = os.path.join(STATIC_DIR, "icon.png")
     if os.path.exists(placeholder):
-        return FileResponse(placeholder, media_type="image/png")
+        return FileResponse(placeholder, media_type="image/png", headers={"Cache-Control": "public, max-age=120"})
     raise HTTPException(status_code=404, detail="Foto de perfil no encontrada")
 
 

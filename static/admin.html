@@ -601,6 +601,18 @@
                 </div>
             </div>
 
+            <!-- CONTADOR Y SELECTOR DE VISTA BIOMÉTRICA -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin: 10px 0 14px 0; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12px; font-weight:800; padding:6px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        ✅ <span id="countEmpEnrolados">0</span> Trabajadores con Biometría Facial Registrada
+                    </span>
+                    <button type="button" id="btnToggleNominaCompleta" onclick="alternarVistaNomina()" class="btn btn-outline" style="font-size:11px; padding:5px 10px;" title="Ver o descargar la lista general de nómina de personal">
+                        📋 Ver Nómina Completa
+                    </button>
+                </div>
+            </div>
+
             <!-- BARRA DE ACCIÓN MASIVA (Punto 2) -->
             <div style="background:var(--filter-bg); border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text-main); cursor:pointer;">
@@ -877,6 +889,77 @@
         </div>
     </div>
 
+    <!-- MODAL PARA EDITAR COMUNICADO OFICIAL -->
+    <div id="modalEditarComunicado" class="modal hidden" onclick="cerrarEditarComunicadoFondo(event)">
+        <div class="modal-box" style="max-width:520px;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin:0; font-size:18px;">✏️ Modificar Comunicado Oficial</h3>
+                    <span style="font-size:12px; color:var(--text-sub);">Actualiza el título, mensaje, tipo de alerta o destinatarios</span>
+                </div>
+                <button class="close-btn" onclick="cerrarEditarComunicadoModal()">✕</button>
+            </div>
+            <form onsubmit="guardarEdicionComunicado(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+                <input type="hidden" id="editComId">
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                        🎯 Destinatarios:
+                    </label>
+                    <select id="editComAlcance" onchange="cambiarAlcanceEditarComunicado()" style="width:100%;">
+                        <option value="GENERAL">🏢 Toda la Empresa (General)</option>
+                        <option value="PROYECTO">🏗️ Por Obra Específica</option>
+                        <option value="INDIVIDUAL">👤 Selección Múltiple de Trabajadores</option>
+                    </select>
+                </div>
+
+                <div id="boxEditComObra" class="hidden">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                        🏗️ Selecciona la Obra:
+                    </label>
+                    <select id="editComSelectObra" style="width:100%;"></select>
+                </div>
+
+                <div id="boxEditComEmpleados" class="hidden">
+                    <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                        👥 Marca los Trabajadores Destinatarios:
+                    </label>
+                    <div id="listaCheckEditEmpleadosCom" style="max-height:150px; overflow-y:auto; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                        🚨 Tipo de Alerta:
+                    </label>
+                    <select id="editComTipoAlerta" style="width:100%;">
+                        <option value="POPUP_OBLIGATORIO">📋 Bloqueo App (Pantalla de bloqueo)</option>
+                        <option value="PUSH_ALERT">🚨 Alerta Push (Vibración / Notificación)</option>
+                        <option value="AMBOS">🔥 Ambos (Push Inmediata + Bloqueo Obligatorio)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                        📝 Título del Comunicado:
+                    </label>
+                    <input type="text" id="editComTitulo" required style="width:100%;">
+                </div>
+
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                        💬 Mensaje Oficial:
+                    </label>
+                    <textarea id="editComMensaje" rows="4" required style="width:100%;"></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                    <button type="button" onclick="cerrarEditarComunicadoModal()" class="btn btn-outline">Cancelar</button>
+                    <button type="submit" id="btnGuardarEdicionCom" class="btn" style="background:#2563eb; font-weight:700;">💾 Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL DE ASIGNACIÓN DE OBRAS A EMPLEADO -->
     <div id="modalAsignarObras" class="modal hidden" onclick="cerrarAsignarObrasModalFondo(event)">
         <div class="modal-box" style="max-width:480px;" onclick="event.stopPropagation()">
@@ -1131,83 +1214,31 @@
 
             const contador = document.getElementById('lblContadorFiltrados');
             if (contador) {
-                contador.innerText = `Mostrando ${marcajesFiltrados.length} de ${datosMarcajes.length} registros`;
+                const vis = Math.min(limitePaginacionMarcajes, marcajesFiltrados.length);
+                contador.innerText = `Mostrando ${vis} de ${marcajesFiltrados.length} registros`;
             }
 
             renderizarTabla(marcajesFiltrados);
         }
 
-        function ordenarPor(columna) {
-            if (columnaOrdenActual === columna) {
-                direccionOrden = direccionOrden === 'asc' ? 'desc' : 'asc';
-            } else {
-                columnaOrdenActual = columna;
-                direccionOrden = 'asc';
-            }
-
-            const columnas = [
-                'empleado_nombre', 'tipo', 'timestamp_local', 'proyecto_nombre',
-                'similitud_facial', 'distancia_metros', 'metodo_ubicacion', 'estado_auditoria'
-            ];
-            columnas.forEach(c => {
-                const el = document.getElementById('sort_' + c);
-                if (el) {
-                    if (c === columnaOrdenActual) {
-                        el.innerText = direccionOrden === 'asc' ? '▲' : '▼';
-                        el.style.color = '#2563eb';
-                    } else {
-                        el.innerText = '↕️';
-                        el.style.color = '#64748b';
-                    }
-                }
-            });
-
-            filtrarMarcajes();
-        }
-
-        function limpiarTodosFiltros() {
-            if (document.getElementById('filtroColTrabajador')) document.getElementById('filtroColTrabajador').value = '';
-            if (document.getElementById('filtroColTipo')) document.getElementById('filtroColTipo').value = '';
-            if (document.getElementById('filtroColFecha')) document.getElementById('filtroColFecha').value = '';
-            if (document.getElementById('filtroColProyecto')) document.getElementById('filtroColProyecto').value = '';
-            if (document.getElementById('filtroColActividad')) document.getElementById('filtroColActividad').value = '';
-            if (document.getElementById('filtroColSimilitud')) document.getElementById('filtroColSimilitud').value = '';
-            if (document.getElementById('filtroColDistancia')) document.getElementById('filtroColDistancia').value = '';
-            if (document.getElementById('filtroColMetodo')) document.getElementById('filtroColMetodo').value = '';
-            if (document.getElementById('filtroColAuditoria')) document.getElementById('filtroColAuditoria').value = '';
-
-            ultimoFiltroProyecto = null;
-            cargarMetricas('');
-
-            columnaOrdenActual = '';
-            direccionOrden = 'asc';
-            const columnas = [
-                'empleado_nombre', 'tipo', 'timestamp_local', 'proyecto_nombre',
-                'similitud_facial', 'distancia_metros', 'metodo_ubicacion', 'estado_auditoria'
-            ];
-            columnas.forEach(c => {
-                const el = document.getElementById('sort_' + c);
-                if (el) {
-                    el.innerText = '↕️';
-                    el.style.color = '#64748b';
-                }
-            });
-
-            filtrarMarcajes();
-        }
+        let limitePaginacionMarcajes = 50;
 
         function renderizarTabla(items) {
             const tbody = document.getElementById('tablaCuerpo');
             if (items.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 30px; color:#94a3b8;">No hay marcajes que coincidan con el filtro seleccionado.</td></tr>';
+                actualizarBarraPaginacionMarcajes(0, 0);
                 return;
             }
 
-            tbody.innerHTML = items.map(m => {
+            const total = items.length;
+            const itemsVisibles = items.slice(0, limitePaginacionMarcajes);
+
+            tbody.innerHTML = itemsVisibles.map(m => {
                 const hora = new Date(m.timestamp_local).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone: 'America/Los_Angeles' });
                 const fecha = new Date(m.timestamp_local).toLocaleDateString([], { timeZone: 'America/Los_Angeles' });
                 const fotoTag = m.foto_path ? 
-                    `<img src="${m.foto_path}" class="thumb" alt="Foto" onclick="abrirModalInspeccion(${m.id})" title="Click para ver foto en grande">` : 
+                    `<img src="${m.foto_path}" loading="lazy" decoding="async" class="thumb" onerror="this.onerror=null; this.src='/static/icon.png';" alt="Foto" onclick="abrirModalInspeccion(${m.id})" title="Click para ver foto en grande">` : 
                     '<span style="color:#64748b; font-size:12px;">Sin foto</span>';
                 const distText = m.distancia_metros !== null ? `${Math.round(m.distancia_metros)}m` : 'N/A';
                 
@@ -1254,6 +1285,74 @@
                     </tr>
                 `;
             }).join('');
+
+            actualizarBarraPaginacionMarcajes(itemsVisibles.length, total);
+        }
+
+        function actualizarBarraPaginacionMarcajes(visibles, total) {
+            let bar = document.getElementById('barraPaginacionMarcajes');
+            if (!bar) {
+                const tableCont = document.querySelector('.table-container');
+                if (tableCont) {
+                    bar = document.createElement('div');
+                    bar.id = 'barraPaginacionMarcajes';
+                    tableCont.parentNode.insertBefore(bar, tableCont.nextSibling);
+                }
+            }
+            if (!bar) return;
+            if (total === 0) {
+                bar.style.display = 'none';
+                return;
+            }
+            bar.style.display = 'flex';
+            bar.style.justifyContent = 'space-between';
+            bar.style.alignItems = 'center';
+            bar.style.flexWrap = 'wrap';
+            bar.style.gap = '10px';
+            bar.style.padding = '10px 14px';
+            bar.style.background = 'var(--card-bg)';
+            bar.style.border = '1px solid var(--border)';
+            bar.style.borderRadius = '10px';
+            bar.style.marginTop = '10px';
+            bar.style.boxShadow = 'var(--shadow)';
+
+            const hayMas = visibles < total;
+            bar.innerHTML = `
+                <div style="font-size:13px; color:var(--text-sub); font-weight:600;">
+                    Mostrando <b style="color:var(--text-main);">${visibles}</b> de <b style="color:var(--text-main);">${total}</b> marcajes recientes (prioridad a fotos de hoy)
+                </div>
+                <div style="display:flex; gap:8px;">
+                    ${hayMas ? `
+                        <button type="button" onclick="cargarMasMarcajes(50)" class="btn" style="background:#2563eb; font-size:12px; padding:6px 14px; font-weight:700;">
+                            ⬇️ Cargar 50 Anteriores
+                        </button>
+                        <button type="button" onclick="cargarTodosLosMarcajes()" class="btn btn-outline" style="font-size:12px; padding:6px 14px; font-weight:700;">
+                            📜 Ver Todos (${total})
+                        </button>
+                    ` : `
+                        <span style="font-size:12px; color:#10b981; font-weight:700;">✅ Mostrando todos los marcajes</span>
+                    `}
+                </div>
+            `;
+        }
+
+        function cargarMasMarcajes(cant = 50) {
+            limitePaginacionMarcajes += cant;
+            const contador = document.getElementById('lblContadorFiltrados');
+            if (contador) {
+                const vis = Math.min(limitePaginacionMarcajes, marcajesFiltrados.length);
+                contador.innerText = `Mostrando ${vis} de ${marcajesFiltrados.length} registros`;
+            }
+            renderizarTabla(marcajesFiltrados);
+        }
+
+        function cargarTodosLosMarcajes() {
+            limitePaginacionMarcajes = 999999;
+            const contador = document.getElementById('lblContadorFiltrados');
+            if (contador) {
+                contador.innerText = `Mostrando ${marcajesFiltrados.length} de ${marcajesFiltrados.length} registros`;
+            }
+            renderizarTabla(marcajesFiltrados);
         }
 
         // ================= BORRAR MARCAJES (ADMIN) =================
@@ -1488,15 +1587,36 @@
         }
 
         // ================= PLANTILLA DE TRABAJADORES (TAB 2) =================
-        async function cargarEmpleadosAdmin() {
+        let mostrandoNominaCompleta = false;
+        let limitePaginacionPersonal = 60;
+
+        async function cargarEmpleadosAdmin(todos = false) {
             try {
-                const res = await fetch("/api/empleados");
+                const url = todos ? "/api/empleados?todos=true" : "/api/empleados";
+                const res = await fetch(url);
                 const data = await res.json();
                 datosEmpleados = data.empleados || [];
-                renderizarEmpleados(datosEmpleados);
+                
+                const elEnr = document.getElementById('countEmpEnrolados');
+                if (elEnr) {
+                    const cantEnrolados = datosEmpleados.filter(e => (e.enrolado === 1 || (!e.requiere_reenrolamiento && e.foto_perfil))).length;
+                    elEnr.innerText = cantEnrolados;
+                }
+                filtrarPersonalAdmin();
             } catch(e) {
                 console.warn("Error cargando empleados:", e);
             }
+        }
+
+        async function alternarVistaNomina() {
+            mostrandoNominaCompleta = !mostrandoNominaCompleta;
+            const btn = document.getElementById('btnToggleNominaCompleta');
+            if (btn) {
+                btn.innerHTML = mostrandoNominaCompleta ? '✅ Ver Solo con Biometría' : '📋 Ver Nómina Completa';
+                btn.className = mostrandoNominaCompleta ? 'btn' : 'btn btn-outline';
+            }
+            limitePaginacionPersonal = 60;
+            await cargarEmpleadosAdmin(mostrandoNominaCompleta);
         }
 
         let empleadosSeleccionados = new Set();
@@ -1603,11 +1723,14 @@
         function renderizarEmpleados(lista) {
             const container = document.getElementById('gridPersonal');
             if (!lista || lista.length === 0) {
-                container.innerHTML = '<div style="color:#94a3b8; padding:20px;">No hay trabajadores registrados en la base de datos biométrica.</div>';
+                container.innerHTML = '<div style="color:#94a3b8; padding:30px; grid-column:1/-1; text-align:center;">No hay trabajadores que coincidan con el filtro seleccionado.</div>';
                 return;
             }
 
-            container.innerHTML = lista.map(emp => {
+            const visibleItems = lista.slice(0, limitePaginacionPersonal);
+            const hayMas = lista.length > limitePaginacionPersonal;
+
+            let html = visibleItems.map(emp => {
                 const avatar = emp.foto_perfil || '/static/icon.png';
                 const fecha = new Date(emp.fecha_registro).toLocaleDateString([], { timeZone: 'America/Los_Angeles' });
                 const tel = emp.telefono ? `📞 ${emp.telefono}` : '<span style="color:#64748b;">Sin teléfono</span>';
@@ -1615,7 +1738,8 @@
                 const obrasActuales = emp.obras_asignadas || 'ALL';
 
                 // Badge de biometría (Punto 2)
-                const badgeBio = emp.requiere_reenrolamiento 
+                const esEnroladoReal = (emp.enrolado === 1 || (!emp.requiere_reenrolamiento && emp.foto_perfil));
+                const badgeBio = (!esEnroladoReal || emp.requiere_reenrolamiento)
                     ? '<span style="background:#ef4444; color:white; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">⚠️ PENDIENTE FOTOS</span>' 
                     : '<span style="background:#16a34a; color:white; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">✅ BIOMETRÍA OK</span>';
 
@@ -1640,7 +1764,7 @@
                         <!-- Checkbox selección masiva -->
                         <input type="checkbox" class="chk-emp-select" value="${emp.id}" onchange="actualizarContadorSeleccionados()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
                         
-                        <img src="${avatar}" alt="${emp.nombre}" class="worker-avatar" onclick="abrirFotoGrande('${avatar}')" title="Click para ver foto de enrolamiento">
+                        <img src="${avatar}" loading="lazy" decoding="async" alt="${emp.nombre}" class="worker-avatar" onerror="this.onerror=null; this.src='/static/icon.png';" onclick="abrirFotoGrande('${avatar}')" title="Click para ver foto de enrolamiento">
                         <div style="flex:1; min-width:0;">
                             <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                 <div style="font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -1695,7 +1819,35 @@
                     </div>
                 `;
             }).join('');
+
+            if (hayMas) {
+                html += `
+                <div style="grid-column: 1 / -1; text-align:center; padding: 18px; background:var(--filter-bg); border:1px dashed var(--border); border-radius:12px; margin-top:10px;">
+                    <div style="font-size:13px; color:var(--text-sub); margin-bottom:10px; font-weight:600;">
+                        Mostrando primeros ${visibleItems.length} de ${lista.length} trabajadores
+                    </div>
+                    <button type="button" onclick="cargarMasPersonal()" class="btn" style="background:#2563eb; font-weight:700; padding:8px 22px; font-size:13px; margin-right:8px; cursor:pointer;">
+                        ⬇️ Cargar 60 Más
+                    </button>
+                    <button type="button" onclick="cargarTodoPersonal()" class="btn btn-outline" style="font-weight:700; padding:8px 18px; font-size:13px; cursor:pointer;">
+                        Mostrar Todos (${lista.length})
+                    </button>
+                </div>
+                `;
+            }
+
+            container.innerHTML = html;
             actualizarContadorSeleccionados();
+        }
+
+        function cargarMasPersonal() {
+            limitePaginacionPersonal += 60;
+            filtrarPersonalAdmin();
+        }
+
+        function cargarTodoPersonal() {
+            limitePaginacionPersonal = 99999;
+            filtrarPersonalAdmin();
         }
 
         let empEditandoObrasId = null;
@@ -1816,12 +1968,31 @@
 
         function filtrarPersonalAdmin() {
             const q = document.getElementById('buscadorPersonal').value.toLowerCase().trim();
-            const filtrados = datosEmpleados.filter(e => 
-                (e.nombre && e.nombre.toLowerCase().includes(q)) || 
-                (e.telefono && e.telefono.includes(q)) || 
-                (e.rol && e.rol.toLowerCase().includes(q)) ||
-                (e.obras_asignadas && e.obras_asignadas.toLowerCase().includes(q))
-            );
+            let filtrados = (datosEmpleados || []).slice();
+
+            // 1. Filtrar por texto de búsqueda si el usuario escribe
+            if (q) {
+                filtrados = filtrados.filter(e => 
+                    (e.nombre && e.nombre.toLowerCase().includes(q)) || 
+                    (e.telefono && e.telefono.includes(q)) || 
+                    (e.rol && e.rol.toLowerCase().includes(q)) ||
+                    (e.obras_asignadas && e.obras_asignadas.toLowerCase().includes(q))
+                );
+            }
+
+            // 2. Por defecto: mostrar estrictamente trabajadores con biometría registrada
+            if (!mostrandoNominaCompleta) {
+                filtrados = filtrados.filter(e => e.enrolado === 1 || (!e.requiere_reenrolamiento && e.foto_perfil));
+            }
+
+            // 3. Ordenar: primero los enrolados (con fotos), luego alfabético
+            filtrados.sort((a, b) => {
+                const aEnr = (a.enrolado === 1 || (!a.requiere_reenrolamiento && a.foto_perfil)) ? 1 : 0;
+                const bEnr = (b.enrolado === 1 || (!b.requiere_reenrolamiento && b.foto_perfil)) ? 1 : 0;
+                if (bEnr !== aEnr) return bEnr - aEnr;
+                return (a.nombre || '').localeCompare(b.nombre || '');
+            });
+
             renderizarEmpleados(filtrados);
         }
 
@@ -1855,11 +2026,9 @@
                 if (data.proyectos && data.proyectos.length > 0) {
                     datosProyectos = data.proyectos;
                     container.innerHTML = data.proyectos.map(p => {
-                        const pisosStr = p.pisos || 'Piso 1, Piso 2, Piso 3, Sótano 1, Azotea';
-                        const actsStr = p.actividades || 'Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza';
+                        const pisosStr = (p.pisos || 'Piso 1, Piso 2, Piso 3, Sótano 1, Azotea').trim();
+                        const actsStr = (p.actividades || 'Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza').trim();
                         const pNombreEsc = (p.nombre || '').replace(/'/g, "\\'");
-                        const pPisosEsc = (p.pisos || '').replace(/'/g, "\\'");
-                        const pActsEsc = (p.actividades || '').replace(/'/g, "\\'");
 
                         return `
                         <div class="project-item" style="display:flex; flex-direction:column; gap:8px;">
@@ -1919,8 +2088,8 @@
             }
             document.getElementById('confObraId').value = p.id;
             document.getElementById('confObraTitulo').innerText = `Configurar: ${p.nombre}`;
-            document.getElementById('confObraPisos').value = p.pisos || '';
-            document.getElementById('confObraActividades').value = p.actividades || '';
+            document.getElementById('confObraPisos').value = (p.pisos || '').trim();
+            document.getElementById('confObraActividades').value = (p.actividades || '').trim();
             const chk = document.getElementById('confObraMostrarHoras');
             if (chk) chk.checked = (p.mostrar_horas_obreros !== 0);
             const modal = document.getElementById('modalConfigObra');
@@ -2177,14 +2346,17 @@
             }
         }
 
+        let datosComunicados = [];
+
         async function cargarHistorialComunicados() {
             const container = document.getElementById('listaHistorialComunicados');
             container.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center;">⏳ Cargando historial de comunicados...</div>';
             try {
                 const res = await fetch('/api/comunicados');
                 const data = await res.json();
-                if (data.status === 'ok' && data.comunicados && data.comunicados.length > 0) {
-                    container.innerHTML = data.comunicados.map(c => {
+                datosComunicados = data.comunicados || [];
+                if (data.status === 'ok' && datosComunicados.length > 0) {
+                    container.innerHTML = datosComunicados.map(c => {
                         const rawDate = c.fecha_creacion || c.created_at;
                         let fecha = 'Reciente';
                         if (rawDate) {
@@ -2213,17 +2385,25 @@
                         const alertLabel = alertType === 'PUSH_ALERT' || alertType === 'PUSH' ? '🚨 Alerta Push' : (alertType === 'AMBOS' ? '🔥 Push + Bloqueo' : '📋 Bloqueo App');
 
                         return `
-                            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:12px; box-shadow:var(--shadow);">
-                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:12px; box-shadow:var(--shadow); margin-bottom:10px;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
                                     <div>
                                         <div style="font-weight:800; font-size:14px; color:var(--text-main);">${c.titulo}</div>
                                         <div style="font-size:11px; color:var(--text-sub); margin-top:2px;">
                                             📅 ${fecha} (Seattle) • ${targetLabel} • <span style="color:#38bdf8; font-weight:700;">${alertLabel}</span>
                                         </div>
                                     </div>
-                                    <span style="background:#0f172a; border:1px solid #334155; color:#34d399; font-size:11px; font-weight:800; padding:3px 8px; border-radius:12px;">
-                                        ✍️ ${c.total_lecturas || 0} Confirmados
-                                    </span>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span style="background:#0f172a; border:1px solid #334155; color:#34d399; font-size:11px; font-weight:800; padding:3px 8px; border-radius:12px;">
+                                            ✍️ ${c.total_lecturas || 0} Confirmados
+                                        </span>
+                                        <button type="button" onclick="abrirEditarComunicadoModal(${c.id})" class="btn btn-outline" style="font-size:11px; padding:3px 8px;" title="Editar título, texto o destinatarios">
+                                            ✏️ Editar
+                                        </button>
+                                        <button type="button" onclick="eliminarComunicadoAdmin(${c.id})" class="btn btn-danger" style="font-size:11px; padding:3px 8px;" title="Eliminar comunicado de los celulares">
+                                            🗑️
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style="font-size:12px; color:var(--text-main); margin-top:8px; line-height:1.4; background:var(--input-bg); padding:8px; border-radius:6px; border:1px solid var(--border); white-space:pre-wrap;">${c.mensaje}</div>
                             </div>
@@ -2234,6 +2414,161 @@
                 }
             } catch (e) {
                 container.innerHTML = '<div style="color:#ef4444; padding:15px; text-align:center;">Error al cargar historial de comunicados.</div>';
+            }
+        }
+
+        async function eliminarComunicadoAdmin(id) {
+            if (!confirm("⚠️ ¿Estás seguro de que deseas eliminar este comunicado?\n\nDejará de aparecer inmediatamente en los celulares de todos los trabajadores.")) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/comunicados/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert("✅ Comunicado eliminado correctamente.");
+                    cargarHistorialComunicados();
+                } else {
+                    alert("Error eliminando comunicado: " + (data.error || 'Desconocido'));
+                }
+            } catch (e) {
+                alert("Error de red al eliminar comunicado.");
+            }
+        }
+
+        function abrirEditarComunicadoModal(id) {
+            const c = datosComunicados.find(item => item.id == id);
+            if (!c) return alert("Comunicado no encontrado.");
+
+            document.getElementById('editComId').value = c.id;
+            document.getElementById('editComTitulo').value = c.titulo || '';
+            document.getElementById('editComMensaje').value = c.mensaje || '';
+
+            const alertType = c.tipo_alerta || c.tipo_entrega || 'IN_APP';
+            const selAlerta = document.getElementById('editComTipoAlerta');
+            if (selAlerta) {
+                if (alertType === 'PUSH' || alertType === 'PUSH_ALERT') selAlerta.value = 'PUSH_ALERT';
+                else if (alertType === 'AMBOS') selAlerta.value = 'AMBOS';
+                else selAlerta.value = 'POPUP_OBLIGATORIO';
+            }
+
+            // Poblar obras en selector de edición
+            const selObra = document.getElementById('editComSelectObra');
+            if (selObra && datosProyectos) {
+                selObra.innerHTML = '<option value="">-- Seleccionar Obra --</option>' +
+                    datosProyectos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            }
+
+            // Poblar lista de checkboxes de empleados
+            const boxEmp = document.getElementById('listaCheckEditEmpleadosCom');
+            let dests = c.destinos || [];
+            if (typeof c.target_valor === 'string' && c.target_valor.startsWith('[')) {
+                try { dests = JSON.parse(c.target_valor); } catch(e) {}
+            } else if (c.target_valor) {
+                dests = [c.target_valor];
+            }
+
+            if (boxEmp && datosEmpleados) {
+                boxEmp.innerHTML = datosEmpleados.map(emp => {
+                    const isChecked = Array.isArray(dests) && dests.includes(emp.nombre);
+                    return `
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+                        <input type="checkbox" class="chk-edit-com-emp" value="${emp.nombre}" ${isChecked ? 'checked' : ''} style="width:16px; height:16px; accent-color:#2563eb;">
+                        <span>${emp.nombre}</span>
+                    </label>
+                    `;
+                }).join('');
+            }
+
+            const alc = c.alcance || c.target_tipo || 'TODOS';
+            const selAlc = document.getElementById('editComAlcance');
+            if (alc === 'OBRA' || alc === 'PROYECTO') {
+                selAlc.value = 'PROYECTO';
+                if (selObra && dests.length > 0) selObra.value = dests[0];
+            } else if (alc === 'PERSONAS' || alc === 'INDIVIDUAL') {
+                selAlc.value = 'INDIVIDUAL';
+            } else {
+                selAlc.value = 'GENERAL';
+            }
+            cambiarAlcanceEditarComunicado();
+
+            document.getElementById('modalEditarComunicado').classList.remove('hidden');
+        }
+
+        function cambiarAlcanceEditarComunicado() {
+            const alc = document.getElementById('editComAlcance').value;
+            const boxObra = document.getElementById('boxEditComObra');
+            const boxEmp = document.getElementById('boxEditComEmpleados');
+            if (boxObra) boxObra.className = (alc === 'PROYECTO') ? '' : 'hidden';
+            if (boxEmp) boxEmp.className = (alc === 'INDIVIDUAL') ? '' : 'hidden';
+        }
+
+        function cerrarEditarComunicadoModal() {
+            document.getElementById('modalEditarComunicado').classList.add('hidden');
+        }
+
+        function cerrarEditarComunicadoFondo(e) {
+            if (e.target.id === 'modalEditarComunicado') cerrarEditarComunicadoModal();
+        }
+
+        async function guardarEdicionComunicado(e) {
+            e.preventDefault();
+            const id = document.getElementById('editComId').value;
+            const titulo = document.getElementById('editComTitulo').value.trim();
+            const mensaje = document.getElementById('editComMensaje').value.trim();
+            const tipoAlerta = document.getElementById('editComTipoAlerta').value;
+            const alcance = document.getElementById('editComAlcance').value;
+
+            if (!titulo || !mensaje) return alert("El título y el mensaje son obligatorios.");
+
+            let destinosArr = [];
+            let alcanceFinal = 'TODOS';
+            if (alcance === 'PROYECTO') {
+                alcanceFinal = 'OBRA';
+                const obraVal = document.getElementById('editComSelectObra').value;
+                if (!obraVal) return alert("Por favor selecciona la obra destinataria.");
+                destinosArr = [obraVal];
+            } else if (alcance === 'INDIVIDUAL') {
+                alcanceFinal = 'PERSONAS';
+                const checks = document.querySelectorAll('.chk-edit-com-emp:checked');
+                destinosArr = Array.from(checks).map(c => c.value);
+                if (destinosArr.length === 0) return alert("Por favor marca al menos un trabajador destinatario.");
+            } else {
+                alcanceFinal = 'TODOS';
+                destinosArr = ['ALL'];
+            }
+
+            const btn = document.getElementById('btnGuardarEdicionCom');
+            btn.disabled = true;
+            btn.innerText = "Guardando...";
+
+            try {
+                const res = await fetch(`/api/comunicados/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        titulo: titulo,
+                        mensaje: mensaje,
+                        tipo_alerta: tipoAlerta,
+                        tipo_entrega: tipoAlerta === 'PUSH_ALERT' ? 'PUSH' : (tipoAlerta === 'AMBOS' ? 'AMBOS' : 'IN_APP'),
+                        target_tipo: alcanceFinal,
+                        alcance: alcanceFinal,
+                        target_valor: JSON.stringify(destinosArr),
+                        destinos: destinosArr
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert("✅ Comunicado modificado correctamente.");
+                    cerrarEditarComunicadoModal();
+                    cargarHistorialComunicados();
+                } else {
+                    alert("Error al actualizar comunicado: " + (data.error || 'Desconocido'));
+                }
+            } catch(e) {
+                alert("Error de red al actualizar comunicado.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "💾 Guardar Cambios";
             }
         }
 
@@ -2273,10 +2608,14 @@
                 const data = await res.json();
                 if (data.status === 'ok') {
                     alert('✅ Base de datos maestra sincronizada exitosamente desde Google Drive.');
-                    await cargarMetricasDashboard();
-                    await cargarReportes(true);
-                    await cargarProyectos();
-                    await cargarEmpleados();
+                    try {
+                        await cargarMetricasDashboard();
+                        await cargarReportes(true);
+                        await cargarProyectos();
+                        await cargarEmpleados();
+                    } catch(errReload) {
+                        console.warn("Actualizando vistas tras restore:", errReload);
+                    }
                 } else {
                     alert('Aviso Google Drive: ' + (data.error || data.mensaje || 'No se pudo completar la restauración.'));
                 }

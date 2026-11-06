@@ -365,10 +365,10 @@ def obtener_empleado(nombre):
         return d
     return None
 
-def listar_empleados():
+def listar_empleados(solo_enrolados: bool = True):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    query = """
     SELECT id, nombre, telefono, puesto, COALESCE(rol, 'worker') as rol, 
            COALESCE(obras_asignadas, 'ALL') as obras_asignadas,
            foto_perfil, fecha_registro, activo,
@@ -378,8 +378,12 @@ def listar_empleados():
            (CASE WHEN LENGTH(COALESCE(vectores_json, '[]')) > 10 AND COALESCE(requiere_reenrolamiento, 0) = 0 THEN 1 ELSE 0 END) as enrolado
     FROM empleados 
     WHERE activo = 1 
-    ORDER BY nombre ASC
-    """)
+    """
+    if solo_enrolados:
+        # En la base de datos solo deben aparecer quienes completaron su registro biométrico
+        query += " AND LENGTH(COALESCE(vectores_json, '[]')) > 10"
+    query += " ORDER BY fecha_registro DESC, nombre ASC"
+    cursor.execute(query)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -1363,24 +1367,32 @@ def crear_comunicado(titulo, mensaje, tipo_entrega="IN_APP", alcance="TODOS", de
 def obtener_comunicados_pendientes_empleado(empleado_nombre: str, obra_actual: str = None):
     conn = get_connection()
     cursor = conn.cursor()
+    target_norm = normalizar_nombre(empleado_nombre)
+
+    # 1. Obtener IDs de comunicados ya leídos por este empleado comparando con y sin tildes/espacios
+    cursor.execute("SELECT comunicado_id, empleado_nombre FROM comunicados_lecturas")
+    lecturas = cursor.fetchall()
+    leidos_ids = set()
+    for l in lecturas:
+        if normalizar_nombre(l["empleado_nombre"]) == target_norm or str(l["empleado_nombre"]).lower().strip() == str(empleado_nombre).lower().strip():
+            leidos_ids.add(l["comunicado_id"])
+
     cursor.execute("""
-        SELECT c.* FROM comunicados c
-        WHERE c.activo = 1 
-          AND c.id NOT IN (
-              SELECT comunicado_id FROM comunicados_lecturas 
-              WHERE lower(trim(empleado_nombre)) = lower(trim(?))
-          )
-        ORDER BY c.id DESC
-    """, (empleado_nombre,))
+        SELECT * FROM comunicados 
+        WHERE activo = 1 
+        ORDER BY id DESC
+    """)
     rows = cursor.fetchall()
     pendientes = []
 
     # Obtener obras asignadas del empleado
     emp_row = obtener_empleado(empleado_nombre)
     obras_asignadas = (emp_row["obras_asignadas"] if emp_row else "") or "ALL"
-    target_norm = normalizar_nombre(empleado_nombre)
 
     for r in rows:
+        if r["id"] in leidos_ids:
+            continue
+
         alcance = str(r["alcance"] or "TODOS").upper().strip()
         destinos = json.loads(r["destinos_json"] or "[]")
         aplica = False
@@ -1422,10 +1434,42 @@ def registrar_lectura_comunicado(comunicado_id: int, empleado_nombre: str):
     conn.close()
     return {"status": "ok", "fecha_lectura": fecha}
 
+def eliminar_comunicado(comunicado_id: int):
+    """Elimina o desactiva un comunicado para que deje de aparecer en la app y el historial."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE comunicados SET activo = 0 WHERE id = ?", (comunicado_id,))
+    cursor.execute("DELETE FROM comunicados_lecturas WHERE comunicado_id = ?", (comunicado_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "mensaje": "Comunicado eliminado exitosamente."}
+
+def actualizar_comunicado(comunicado_id: int, titulo: str, mensaje: str, tipo_entrega: str = "IN_APP", alcance: str = "TODOS", destinos: list = None):
+    """Permite editar el título, mensaje, tipo de alerta y destinatarios de un comunicado existente."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    destinos_json = json.dumps(destinos or [])
+    alc_norm = str(alcance or "TODOS").upper().strip()
+    if alc_norm in ("GENERAL", "ALL", "EMPRESA"):
+        alc_norm = "TODOS"
+    elif alc_norm == "PROYECTO":
+        alc_norm = "OBRA"
+    elif alc_norm in ("INDIVIDUAL", "USUARIOS"):
+        alc_norm = "PERSONAS"
+
+    cursor.execute("""
+        UPDATE comunicados 
+        SET titulo = ?, mensaje = ?, tipo_entrega = ?, alcance = ?, destinos_json = ?
+        WHERE id = ?
+    """, (titulo, mensaje, tipo_entrega, alc_norm, destinos_json, comunicado_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "mensaje": "Comunicado actualizado exitosamente."}
+
 def listar_comunicados_admin():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM comunicados ORDER BY id DESC LIMIT 50")
+    cursor.execute("SELECT * FROM comunicados WHERE activo = 1 ORDER BY id DESC LIMIT 50")
     comunicados = [dict(r) for r in cursor.fetchall()]
     for c in comunicados:
         c["destinos"] = json.loads(c["destinos_json"] or "[]")

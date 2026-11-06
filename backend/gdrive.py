@@ -20,6 +20,12 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 _drive_service = None
 _drive_lock = threading.RLock()
 
+# Caché en memoria para IDs de fotos en Drive (Evita miles de peticiones lentas files().list)
+_DRIVE_ID_CACHE = {}          # token / filename -> file_id
+_DRIVE_MISSING_CACHE = set()  # tokens que definitivamente no existen en Drive
+_drive_cache_lock = threading.Lock()
+_drive_index_loaded = False
+
 # Cola de tareas de fondo para Google Drive (1 solo hilo worker serializado)
 # Evita terminantemente errores [SSL] record layer failure, timeouts y colisiones entre hilos.
 _drive_queue = queue.Queue()
@@ -136,11 +142,21 @@ def subir_archivo_drive(ruta_local: str, nombre_remoto: str = None, carpeta_id: 
                 supportsAllDrives=True
             ).execute()
 
-            logger.info(f"✅ Archivo subido exitosamente a Google Drive: {nombre_archivo} (ID: {archivo.get('id')})")
+            f_id = archivo.get("id")
+            f_name = archivo.get("name")
+            if f_id and f_name:
+                with _drive_cache_lock:
+                    _DRIVE_ID_CACHE[f_name] = f_id
+                    base_clean = f_name.replace(".jpg", "").replace(".png", "")
+                    tokens = base_clean.split("_")
+                    if tokens:
+                        _DRIVE_ID_CACHE[tokens[-1]] = f_id
+
+            logger.info(f"✅ Archivo subido exitosamente a Google Drive: {nombre_archivo} (ID: {f_id})")
             return {
                 "status": "ok",
-                "file_id": archivo.get("id"),
-                "name": archivo.get("name"),
+                "file_id": f_id,
+                "name": f_name,
                 "link": archivo.get("webViewLink")
             }
         except Exception as e:
@@ -203,14 +219,63 @@ def sincronizar_db_a_drive_master(carpeta_id: str = None) -> dict:
             return {"status": "error", "error": str(e)}
 
 
+def indexar_fotos_drive_en_memoria(carpeta_id: str = None):
+    """
+    Escanea la carpeta de Google Drive en segundo plano una sola vez al iniciar el servidor
+    para indexar en memoria los file_id de todas las fotos existentes.
+    Permite descargas en <200ms sin saturar Drive con peticiones files().list.
+    """
+    global _drive_index_loaded
+    if _drive_index_loaded:
+        return
+    try:
+        service = obtener_servicio_drive()
+        if not service:
+            return
+        target_folder = carpeta_id or GDRIVE_FOLDER_ID
+        page_token = None
+        total = 0
+        while True:
+            res = service.files().list(
+                q=f"'{target_folder}' in parents and trashed = false",
+                pageSize=500,
+                pageToken=page_token,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+                fields="nextPageToken, files(id, name)"
+            ).execute()
+            files = res.get('files', []) if isinstance(res, dict) else []
+            with _drive_cache_lock:
+                for f in files:
+                    name = f.get('name', '')
+                    fid = f.get('id')
+                    if name and fid:
+                        _DRIVE_ID_CACHE[name] = fid
+                        base_clean = name.replace(".jpg", "").replace(".png", "")
+                        tokens = base_clean.split("_")
+                        if tokens:
+                            _DRIVE_ID_CACHE[tokens[-1]] = fid
+                        total += 1
+            page_token = res.get('nextPageToken')
+            if not page_token:
+                break
+        _drive_index_loaded = True
+        logger.info(f"✅ Índice de fotos Google Drive cargado en memoria: {total} archivos listos para descarga ultra-rápida.")
+    except Exception as e:
+        logger.warning(f"Aviso al precargar fotos de Drive en memoria: {e}")
+
+
 def _ensure_worker():
-    """Garantiza que el hilo único de subidas a Google Drive esté corriendo."""
+    """Garantiza que el hilo único de subidas a Google Drive esté corriendo y el índice precargado."""
     global _worker_started
     with _worker_start_lock:
         if not _worker_started:
             t = threading.Thread(target=_drive_worker_loop, daemon=True, name="DriveSyncWorker")
             t.start()
             _worker_started = True
+            # Iniciar precarga de índice en segundo plano
+            t_idx = threading.Thread(target=indexar_fotos_drive_en_memoria, daemon=True, name="DriveIndexWorker")
+            t_idx.start()
 
 
 def _drive_worker_loop():
@@ -342,61 +407,118 @@ def descargar_foto_desde_drive(nombre_archivo: str, destino_local: str, carpeta_
     """
     Busca y descarga una foto (perfil o captura) desde Google Drive al disco local
     cuando Render recrea el contenedor y el archivo físico no existe en disco.
+    Optimizado con caché en memoria y descarga directa por file_id sin esperas secuenciales.
     """
     if not nombre_archivo:
         return False
     
-    # Extraer token único de búsqueda (ej. hash o parte única del nombre)
-    limpio = os.path.basename(nombre_archivo).replace(".jpg", "").replace(".png", "")
+    base_nom = os.path.basename(nombre_archivo)
+    limpio = base_nom.replace(".jpg", "").replace(".png", "")
     token = limpio.split("_")[-1] if "_" in limpio else limpio
     if len(token) < 4:
         token = limpio
 
-    with _drive_lock:
-        service = obtener_servicio_drive()
-        if not service:
+    # 1. Chequeo ultra-rápido en memoria: ¿Sabemos que no existe o ya tenemos su file_id?
+    with _drive_cache_lock:
+        if token in _DRIVE_MISSING_CACHE or base_nom in _DRIVE_MISSING_CACHE:
             return False
+        cached_file_id = _DRIVE_ID_CACHE.get(base_nom) or _DRIVE_ID_CACHE.get(token)
 
-        target_folder = carpeta_id or GDRIVE_FOLDER_ID
-        try:
-            from googleapiclient.http import MediaIoBaseDownload
-            
-            # Buscar coincidencia por token único o por nombre exacto en Drive
-            q = f"'{target_folder}' in parents and name contains '{token}' and trashed = false"
-            res = service.files().list(
-                q=q, 
-                supportsAllDrives=True, 
-                includeItemsFromAllDrives=True, 
-                fields="files(id, name)",
-                pageSize=5
-            ).execute()
-            files = res.get('files', []) if isinstance(res, dict) else []
-            if not files:
-                return False
+    file_id = cached_file_id
+    service = obtener_servicio_drive()
+    if not service:
+        return False
 
-            file_id = files[0]['id']
-            req = service.files().get_media(fileId=file_id, supportsAllDrives=True)
-            os.makedirs(os.path.dirname(destino_local), exist_ok=True)
+    target_folder = carpeta_id or GDRIVE_FOLDER_ID
+    from googleapiclient.http import MediaIoBaseDownload
 
-            temp_dest = destino_local + ".tmp"
-            with open(temp_dest, "wb") as f:
-                downloader = MediaIoBaseDownload(f, req)
-                done = False
-                while not done:
-                    _, done = downloader.next_chunk()
+    # 2. Si no estaba en caché, buscar en Drive
+    if not file_id:
+        with _drive_lock:
+            try:
+                q = f"'{target_folder}' in parents and name contains '{token}' and trashed = false"
+                res = service.files().list(
+                    q=q, 
+                    supportsAllDrives=True, 
+                    includeItemsFromAllDrives=True, 
+                    fields="files(id, name)",
+                    pageSize=5
+                ).execute()
+                files = res.get('files', []) if isinstance(res, dict) else []
 
-            if os.path.exists(temp_dest) and os.path.getsize(temp_dest) > 100:
-                os.replace(temp_dest, destino_local)
-                logger.info(f"✅ Foto '{nombre_archivo}' descargada exitosamente de Drive (ID: {file_id})")
-                return True
-            else:
-                if os.path.exists(temp_dest):
+                # Si no por token directo, buscar en SQLite el nombre del trabajador o marcaje
+                if not files:
                     try:
-                        os.remove(temp_dest)
-                    except Exception:
-                        pass
+                        import sqlite3
+                        db_p = os.path.join(BASE_DIR, "data", "asistencia.db")
+                        if os.path.exists(db_p):
+                            conn = sqlite3.connect(db_p)
+                            c = conn.cursor()
+                            c.execute("SELECT empleado_nombre, tipo FROM marcajes WHERE foto_path LIKE ? ORDER BY id DESC LIMIT 1", (f"%{base_nom}%",))
+                            row_m = c.fetchone()
+                            if row_m:
+                                emp_clean = str(row_m[0]).replace(" ", "_").strip()
+                                m_tipo = str(row_m[1]).strip()
+                                q2 = f"'{target_folder}' in parents and name contains '{emp_clean}' and name contains '{m_tipo}' and trashed = false"
+                                res2 = service.files().list(q=q2, supportsAllDrives=True, includeItemsFromAllDrives=True, fields="files(id, name)", pageSize=3).execute()
+                                files = res2.get('files', []) if isinstance(res2, dict) else []
+                                if not files:
+                                    q2_alt = f"'{target_folder}' in parents and name contains '{emp_clean}' and trashed = false"
+                                    res2_alt = service.files().list(q=q2_alt, supportsAllDrives=True, includeItemsFromAllDrives=True, fields="files(id, name)", pageSize=3).execute()
+                                    files = res2_alt.get('files', []) if isinstance(res2_alt, dict) else []
+
+                            # Buscar en empleados (foto de perfil)
+                            if not files:
+                                c.execute("SELECT nombre FROM empleados WHERE foto_perfil LIKE ? LIMIT 1", (f"%{base_nom}%",))
+                                row_emp = c.fetchone()
+                                if row_emp:
+                                    emp_clean = str(row_emp[0]).replace(" ", "_").strip()
+                                    q3 = f"'{target_folder}' in parents and name contains '{emp_clean}' and trashed = false"
+                                    res3 = service.files().list(q=q3, supportsAllDrives=True, includeItemsFromAllDrives=True, fields="files(id, name)", pageSize=3).execute()
+                                    files = res3.get('files', []) if isinstance(res3, dict) else []
+
+                            conn.close()
+                    except Exception as e_db:
+                        logger.warning(f"Error consultando DB para resolver foto en Drive {nombre_archivo}: {e_db}")
+
+                if files:
+                    file_id = files[0]['id']
+                    with _drive_cache_lock:
+                        _DRIVE_ID_CACHE[base_nom] = file_id
+                        _DRIVE_ID_CACHE[token] = file_id
+                else:
+                    with _drive_cache_lock:
+                        _DRIVE_MISSING_CACHE.add(token)
+                        _DRIVE_MISSING_CACHE.add(base_nom)
+                    return False
+            except Exception as e_search:
+                logger.warning(f"Error buscando foto en Drive {nombre_archivo}: {e_search}")
                 return False
-        except Exception as e:
-            logger.warning(f"No se pudo descargar foto '{nombre_archivo}' de Drive: {e}")
+
+    # 3. Descargar bytes directamente con file_id
+    try:
+        req = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        os.makedirs(os.path.dirname(destino_local), exist_ok=True)
+
+        temp_dest = destino_local + ".tmp"
+        with open(temp_dest, "wb") as f:
+            downloader = MediaIoBaseDownload(f, req)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+
+        if os.path.exists(temp_dest) and os.path.getsize(temp_dest) > 100:
+            os.replace(temp_dest, destino_local)
+            logger.info(f"✅ Foto '{nombre_archivo}' descargada exitosamente de Drive (ID: {file_id})")
+            return True
+        else:
+            if os.path.exists(temp_dest):
+                try:
+                    os.remove(temp_dest)
+                except Exception:
+                    pass
             return False
+    except Exception as e:
+        logger.warning(f"No se pudo descargar foto '{nombre_archivo}' de Drive: {e}")
+        return False
 

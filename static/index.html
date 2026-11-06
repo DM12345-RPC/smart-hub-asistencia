@@ -1774,8 +1774,14 @@
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data.status === 'ok' && data.comunicados && data.comunicados.length > 0) {
-                    colaComunicados = data.comunicados;
-                    mostrarSiguienteComunicado();
+                    let leidosLocal = [];
+                    try { leidosLocal = JSON.parse(localStorage.getItem("rpcs_comunicados_leidos") || "[]"); } catch(e) {}
+                    
+                    const pendientesReales = data.comunicados.filter(c => !leidosLocal.includes(c.id));
+                    if (pendientesReales.length > 0) {
+                        colaComunicados = pendientesReales;
+                        mostrarSiguienteComunicado();
+                    }
                 }
             } catch (e) {
                 console.warn("No se pudieron verificar comunicados pendientes:", e);
@@ -1798,8 +1804,20 @@
             const fec = document.getElementById('comunicadoFecha');
             const msg = document.getElementById('comunicadoMensaje');
 
+            let fechaStr = "Hoy";
+            if (com.created_at || com.fecha_creacion) {
+                try {
+                    fechaStr = new Date(com.created_at || com.fecha_creacion).toLocaleString('es-US', {
+                        timeZone: 'America/Los_Angeles',
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+                } catch(e) {
+                    fechaStr = String(com.created_at || '').slice(0, 16);
+                }
+            }
+
             if (tit) tit.innerText = com.titulo;
-            if (fec) fec.innerText = `Publicado: ${com.created_at || 'Hoy'}`;
+            if (fec) fec.innerText = `Publicado: ${fechaStr} (Seattle PT)`;
             if (msg) msg.innerText = com.mensaje;
 
             if (modal) modal.classList.remove('hidden');
@@ -1813,30 +1831,39 @@
 
         async function confirmarLecturaComunicadoActual() {
             if (!comunicadoActualId) return;
-            const btn = document.getElementById('btnConfirmarComunicado');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerText = "Registrando recibido...";
-            }
-            const nombre = localStorage.getItem("rpcs_nombre") || "Obrero";
+            const comId = comunicadoActualId;
+
+            // 1. Guardar de inmediato en localStorage para que NUNCA vuelva a saltar
             try {
-                await fetch(`/api/comunicados/${comunicadoActualId}/confirmar_lectura`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ empleado_nombre: nombre })
-                });
-            } catch (e) {
-                console.warn("Firma guardada localmente");
-            }
-            
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = "✅ Entendido y Recibido";
+                const leidos = JSON.parse(localStorage.getItem("rpcs_comunicados_leidos") || "[]");
+                if (!leidos.includes(comId)) {
+                    leidos.push(comId);
+                    localStorage.setItem("rpcs_comunicados_leidos", JSON.stringify(leidos));
+                }
+            } catch(e) {}
+
+            // 2. Cerrar el modal instantáneamente (cero demoras)
+            const modal = document.getElementById('modalComunicadoOficial');
+            if (modal) modal.classList.add('hidden');
+
+            // 3. Quitar de la cola
+            colaComunicados = colaComunicados.filter(c => c.id !== comId);
+            comunicadoActualId = null;
+
+            // 4. Si había otro comunicado pendiente en cola, abrirlo tras medio segundo
+            if (colaComunicados.length > 0) {
+                setTimeout(mostrarSiguienteComunicado, 350);
             }
 
-            // Quitar este comunicado de la cola y mostrar el siguiente si hay más
-            colaComunicados.shift();
-            mostrarSiguienteComunicado();
+            // 5. Notificar al servidor en segundo plano
+            const nombre = localStorage.getItem("rpcs_nombre") || "Obrero";
+            try {
+                fetch(`/api/comunicados/${comId}/confirmar_lectura`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado_nombre: nombre, nombre: nombre })
+                }).catch(e => console.warn("Confirmación offline guardada"));
+            } catch (e) {}
         }
 
         // ================= GESTIÓN DE TAREAS Y ACTIVIDADES (FOREMAN) =================

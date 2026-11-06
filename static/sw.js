@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ryan-pacific-asistencia-v7';
+const CACHE_NAME = 'ryan-pacific-asistencia-v8';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/index.html',
@@ -37,6 +37,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Función auxiliar para no congelar la pantalla de inicio en Android si la red tarda
+function fetchConTimeout(request, ms = 2500) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout red')), ms);
+    fetch(request).then(
+      res => { clearTimeout(timer); resolve(res); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 // Estrategia Network-First con fallback a Caché
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
@@ -46,10 +57,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navegación principal (cargar la página de inicio sin pantalla negra):
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetchConTimeout(event.request, 2200)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
+          return res;
+        })
+        .catch(() => {
+          return caches.match('/').then(cached => cached || fetch(event.request));
+        })
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        // Si hay red, actualizamos la copia de caché
         if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -59,15 +87,11 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       })
       .catch(() => {
-        // Si no hay red (sótano, losa), devolver desde la memoria local del teléfono
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
-            if (url.includes('/admin')) {
-              return;
-            }
             return caches.match('/');
           }
         });
