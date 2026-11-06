@@ -363,6 +363,48 @@
         }
         .success-box h2 { margin: 0 0 6px 0; font-size: 22px; color: #34d399; }
 
+        /* Efecto Flash y Sello de Cámara (Punto 5) */
+        .camera-flash {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ffffff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 60;
+            transition: opacity 0.12s ease-out;
+            border-radius: 16px;
+        }
+        .camera-stamp {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(16, 185, 129, 0.95);
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 55;
+            white-space: nowrap;
+            pointer-events: none;
+            animation: fadeIn 0.2s;
+        }
+
+        /* Animación para instalación en iPhone (Punto 9) */
+        @keyframes bounceDown {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(8px); }
+        }
+        .arrow-bounce-down {
+            animation: bounceDown 1s infinite;
+            font-size: 28px;
+            color: #38bdf8;
+            margin: 4px auto;
+            text-align: center;
+        }
+
         .hidden { display: none !important; }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
@@ -417,7 +459,7 @@
             </select>
 
             <!-- CÁMARA Y ENCUADRE -->
-            <div class="camera-box" id="camContainer">
+            <div class="camera-box" id="camContainer" style="position:relative; overflow:hidden;">
                 <video id="videoFeed" autoplay playsinline muted></video>
                 <div class="face-oval" id="faceGuide">
                     <span>ÁREA DEL ROSTRO</span>
@@ -425,6 +467,9 @@
                 <div class="cam-controls">
                     <button id="btnSwitchCam" class="btn-icon" title="Voltear cámara">🔄</button>
                 </div>
+                <!-- EFECTO FLASH Y SELLO VISUAL INSTANTÁNEO (Punto 5) -->
+                <div id="cameraFlash" class="camera-flash hidden"></div>
+                <div id="cameraStamp" class="camera-stamp hidden">📸 FOTO CAPTURADA • MARCAJE GUARDADO</div>
             </div>
 
             <!-- ESTADO DE GPS / QR SÓTANO -->
@@ -473,6 +518,13 @@
                 </a>
             </div>
 
+            <!-- BOTÓN RESUMEN DE HORAS TRABAJADAS (CONTROLADO POR OBRA Y USUARIO) (Punto 10) -->
+            <div id="workerHoursBar" class="hidden" style="margin-top:10px;">
+                <button type="button" id="btnMisHoras" onclick="abrirModalMisHoras()" style="width:100%; background:var(--card-bg); border:1px solid #3b82f6; color:#38bdf8; padding:10px; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    ⏱️ Mis Horas Trabajadas
+                </button>
+            </div>
+
         </div>
 
     </div>
@@ -496,19 +548,142 @@
         </div>
     </div>
 
-    <!-- MODAL GUIA PARA IPHONE (SAFARI) -->
+    <!-- MODAL GUIA PARA IPHONE (SAFARI) MEJORADO CON FLECHA ANIMADA (Punto 9) -->
     <div id="modalIosGuide" class="modal hidden">
-        <div class="modal-card">
-            <h3>📲 Instalar en tu iPhone</h3>
-            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
-                Para tener el icono en tu pantalla como una app nativa:
+        <div class="modal-card" style="text-align:center;">
+            <div style="font-size:38px; margin-bottom:4px;">📲</div>
+            <h3 style="margin-top:0;">Instalar en la Pantalla de tu iPhone</h3>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">
+                Sigue estos 2 sencillos pasos en Safari para tener el icono oficial:
             </p>
-            <div style="background:#0f172a; padding:14px; border-radius:10px; text-align:left; font-size:14px; margin-bottom:16px; border:1px solid #334155; line-height:1.6;">
-                <p style="margin:4px 0;"><b>1.</b> Toca el botón <b>Compartir</b> <span style="font-size:18px; color:#38bdf8;">⎋</span> (cuadrito con flecha abajo en Safari).</p>
-                <p style="margin:4px 0;"><b>2.</b> Desliza hacia abajo y elige <b>"Añadir a pantalla de inicio"</b> ➕.</p>
-                <p style="margin:4px 0;"><b>3.</b> Toca <b>"Añadir"</b> arriba a la derecha. ¡Listo!</p>
+            <div style="background:#0f172a; padding:14px; border-radius:12px; text-align:left; font-size:14px; margin-bottom:14px; border:1px solid #334155; line-height:1.6;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <span style="background:#2563eb; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">1</span>
+                    <div>Toca el botón <b>Compartir</b> <span style="font-size:20px; color:#38bdf8; vertical-align:middle;">⎋</span> (el cuadrito con flecha abajo en tu Safari).</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="background:#2563eb; color:white; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">2</span>
+                    <div>Desliza hacia abajo y toca <b>"Agregar al inicio"</b> <span style="font-size:18px; color:#34d399; vertical-align:middle;">➕</span>.</div>
+                </div>
             </div>
-            <button onclick="document.getElementById('modalIosGuide').classList.add('hidden')" class="btn-primary">Entendido</button>
+            <div class="arrow-bounce-down">⬇️</div>
+            <button onclick="document.getElementById('modalIosGuide').classList.add('hidden')" class="btn-primary" style="margin-top:8px;">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE AYUDA Y PERMISO GPS (Punto 3) -->
+    <div id="modalGpsAyuda" class="modal hidden" style="z-index:2100;">
+        <div class="modal-card" style="text-align:center;">
+            <div style="font-size:42px; margin-bottom:8px;">📍</div>
+            <h3 style="margin-top:0;">Permiso de Ubicación Requerido</h3>
+            <p style="font-size:13px; color:#94a3b8; line-height:1.5; margin-bottom:16px;">
+                Para registrar tu entrada o salida, el sistema necesita verificar que te encuentras físicamente en la obra.
+            </p>
+            <button id="btnReintentarGps" onclick="forzarSolicitudGpsNativo()" class="btn-primary" style="margin-bottom:10px;">
+                📍 Activar y Permitir GPS Ahora
+            </button>
+            <p style="font-size:11px; color:#64748b; margin:8px 0 0 0;">
+                Si estás bajo losa o sótano sin satélites, puedes presionar <b>"📷 QR Sótano"</b> para escanear el cartel de obra.
+            </p>
+            <button onclick="document.getElementById('modalGpsAyuda').classList.add('hidden')" style="background:transparent; border:none; color:#94a3b8; font-size:12px; margin-top:12px; cursor:pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONSENTIMIENTO LEGAL BIOMÉTRICO (Punto 12 - Washington State RCW 19.375) -->
+    <div id="modalConsentimientoLegal" class="modal hidden" style="z-index:2500;">
+        <div class="modal-card" style="max-height:90vh; overflow-y:auto; text-align:left;">
+            <div style="text-align:center; font-size:36px; margin-bottom:6px;">📋</div>
+            <h3 style="margin-top:0; text-align:center; font-size:16px;">Autorización y Consentimiento de Identificación Facial</h3>
+            <p style="font-size:11px; color:#38bdf8; text-align:center; margin-top:-6px; font-weight:700;">
+                Washington State Law (RCW 19.375) • Seattle, WA
+            </p>
+            <div style="background:#0f172a; padding:12px; border-radius:8px; font-size:12px; color:#cbd5e1; line-height:1.6; border:1px solid #334155; margin-bottom:14px;">
+                <p style="margin:0 0 8px 0;">
+                    <b>De conformidad con las leyes del Estado de Washington (RCW 19.375) y normativas de Seattle:</b>
+                </p>
+                <p style="margin:0 0 8px 0;">
+                    Autorizo a <b>Ryan Pacific Construction Services</b> a capturar mi fotografía y características faciales para su uso exclusivo en la verificación de identidad, registro de asistencia laboral y seguridad en los centros de trabajo.
+                </p>
+                <p style="margin:0;">
+                    Entiendo y acepto que estos datos son estrictamente confidenciales y <b>NO serán vendidos, comercializados, transferidos ni utilizados con fines de mercadeo comercial</b> bajo ninguna circunstancia.
+                </p>
+            </div>
+            <label style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-main); font-weight:600; margin-bottom:16px; cursor:pointer;">
+                <input type="checkbox" id="chkAceptoBiometriaLegal" onchange="document.getElementById('btnAceptarConsentimientoLegal').disabled = !this.checked" style="width:18px; height:18px; accent-color:#16a34a;">
+                <span>He leído y autorizo el uso de mi fotografía para asistencia laboral</span>
+            </label>
+            <button id="btnAceptarConsentimientoLegal" onclick="procederConEnrolamientoTrasConsentimiento()" class="btn-primary" style="background:#16a34a;" disabled>
+                ✅ Acepto y Autorizo
+            </button>
+            <button onclick="document.getElementById('modalConsentimientoLegal').classList.add('hidden')" style="width:100%; background:transparent; border:none; color:#94a3b8; font-size:12px; margin-top:10px; cursor:pointer;">
+                Cancelar
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL MIS HORAS TRABAJADAS (Punto 10) -->
+    <div id="modalMisHoras" class="modal hidden" style="z-index:2200;">
+        <div class="modal-card" style="max-height:85vh; overflow-y:auto; text-align:left;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0; font-size:17px;">⏱️ Mis Horas Trabajadas</h3>
+                <button onclick="document.getElementById('modalMisHoras').classList.add('hidden')" style="background:transparent; border:none; font-size:18px; cursor:pointer; color:var(--text-sub);">✕</button>
+            </div>
+            <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                Horario oficial de obra: <b>Seattle, WA (Pacific Time)</b>
+            </p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                <div>
+                    <label style="font-size:11px; font-weight:700; color:var(--text-sub);">Desde:</label>
+                    <input type="date" id="filtroHorasDesde" style="width:100%; padding:6px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--input-bg); color:var(--text-main);">
+                </div>
+                <div>
+                    <label style="font-size:11px; font-weight:700; color:var(--text-sub);">Hasta:</label>
+                    <input type="date" id="filtroHorasHasta" style="width:100%; padding:6px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--input-bg); color:var(--text-main);">
+                </div>
+            </div>
+            <button onclick="consultarMisHoras()" class="btn-primary" style="padding:8px; font-size:13px; margin-bottom:14px;">
+                🔍 Calcular Horas
+            </button>
+
+            <!-- TARJETA TOTAL HORAS -->
+            <div style="background:linear-gradient(135deg, #1e3a8a, #1e293b); border:1px solid #3b82f6; border-radius:12px; padding:12px; text-align:center; margin-bottom:14px;">
+                <div style="font-size:11px; color:#93c5fd; text-transform:uppercase; font-weight:700;">Total Acumulado</div>
+                <div id="txtTotalHorasObrero" style="font-size:28px; font-weight:800; color:#ffffff; margin:4px 0;">0.0 hrs</div>
+                <div id="txtRangoHorasObrero" style="font-size:11px; color:#bfdbfe;">Selecciona un rango</div>
+            </div>
+
+            <!-- LISTA DE JORNADAS -->
+            <div id="listaJornadasObrero" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="text-align:center; color:#94a3b8; font-size:12px; padding:20px;">Presiona "Calcular Horas" para consultar.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE COMUNICADO OFICIAL MANDATORIO / PANTALLA DE BLOQUEO (Punto 11) -->
+    <div id="modalComunicadoOficial" class="modal hidden" style="z-index:3000; background:rgba(15,23,42,0.95); backdrop-filter:blur(6px);">
+        <div class="modal-card" style="border:2px solid #ef4444; box-shadow:0 0 30px rgba(239,68,68,0.3); text-align:center; max-width:440px;">
+            <div style="font-size:42px; margin-bottom:6px; animation:bounceDown 1.2s infinite;">📢</div>
+            <span style="background:#ef4444; color:white; font-size:11px; font-weight:800; padding:4px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:0.5px;">
+                Aviso Oficial de la Empresa
+            </span>
+            <h2 id="comunicadoTitulo" style="font-size:18px; margin:14px 0 8px 0; color:var(--text-main);">COMUNICADO</h2>
+            <div id="comunicadoFecha" style="font-size:11px; color:var(--text-sub); margin-bottom:14px;">Fecha</div>
+            
+            <div id="comunicadoMensaje" style="background:var(--input-bg); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:left; font-size:14px; color:var(--text-main); line-height:1.6; max-height:220px; overflow-y:auto; margin-bottom:18px; white-space:pre-wrap;">
+                Cargando contenido...
+            </div>
+
+            <p style="font-size:11px; color:#f87171; margin-bottom:14px; font-weight:600;">
+                ⚠️ Para continuar con la jornada laboral, debes confirmar de recibido este aviso.
+            </p>
+
+            <button id="btnConfirmarComunicado" onclick="confirmarLecturaComunicadoActual()" class="btn-primary" style="background:#16a34a; font-size:15px; padding:14px; font-weight:800; box-shadow:0 4px 12px rgba(22,163,74,0.4);">
+                ✅ Entendido y Recibido
+            </button>
         </div>
     </div>
 
@@ -703,7 +878,68 @@
             return ui.canvas.toDataURL('image/jpeg', 0.85);
         }
 
-        // ================= GPS TRACKING =================
+        // ================= FEEDBACK SENSORIAL INSTANTÁNEO (Punto 5) =================
+        function dispararFlashCamara() {
+            const flash = document.getElementById('cameraFlash');
+            if (!flash) return;
+            flash.classList.remove('hidden');
+            flash.style.opacity = '0.92';
+            setTimeout(() => {
+                flash.style.opacity = '0';
+                setTimeout(() => flash.classList.add('hidden'), 130);
+            }, 100);
+        }
+
+        function mostrarSelloCamara(texto) {
+            const stamp = document.getElementById('cameraStamp');
+            if (!stamp) return;
+            stamp.innerText = texto || '📸 FOTO CAPTURADA';
+            stamp.classList.remove('hidden');
+            setTimeout(() => {
+                stamp.classList.add('hidden');
+            }, 1800);
+        }
+
+        function reproducirSonidoObturador() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(650, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(70, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.85, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.09);
+            } catch (e) {}
+        }
+
+        function reproducirSonidoAlertaComunicado() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1));
+                    gain.gain.setValueAtTime(0.7, ctx.currentTime + (i * 0.1));
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.25);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + (i * 0.1));
+                    osc.stop(ctx.currentTime + (i * 0.1) + 0.28);
+                });
+            } catch (e) {}
+        }
+
+        // ================= GPS TRACKING Y FORZADO NATIVO (Punto 3) =================
         function iniciarGPS() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.watchPosition(
@@ -729,6 +965,36 @@
             } else {
                 ui.gpsDot.className = "gps-dot gps-red";
                 ui.gpsTexto.innerText = "GPS no soportado en navegador";
+            }
+        }
+
+        async function forzarSolicitudGpsNativo() {
+            if (!("geolocation" in navigator)) {
+                alert("Tu dispositivo no soporta geolocalización GPS.");
+                return false;
+            }
+            ui.gpsDot.className = "gps-dot gps-yellow";
+            ui.gpsTexto.innerText = "Conectando con satélites GPS...";
+            try {
+                const pos = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 9000,
+                        maximumAge: 0
+                    });
+                });
+                miGPS.lat = pos.coords.latitude;
+                miGPS.lon = pos.coords.longitude;
+                miGPS.accuracy = pos.coords.accuracy;
+                ui.gpsDot.className = "gps-dot gps-green";
+                ui.gpsTexto.innerText = `GPS Conectado (±${Math.round(pos.coords.accuracy)}m)`;
+                const mod = document.getElementById('modalGpsAyuda');
+                if (mod) mod.classList.add('hidden');
+                return true;
+            } catch (err) {
+                ui.gpsDot.className = "gps-dot gps-red";
+                ui.gpsTexto.innerText = "Ubicación GPS no permitida";
+                return false;
             }
         }
 
@@ -806,6 +1072,16 @@
                 return;
             }
 
+            // 0. Verificación Estricta de GPS (Punto 3):
+            if (!miGPS.lat && !qrEscaneadoActivo) {
+                const gpsObtenido = await forzarSolicitudGpsNativo();
+                if (!gpsObtenido && !qrEscaneadoActivo) {
+                    const modGps = document.getElementById('modalGpsAyuda');
+                    if (modGps) modGps.classList.remove('hidden');
+                    return;
+                }
+            }
+
             // Bloquear botones durante el registro
             ui.btnEntrada.disabled = true;
             ui.btnSalida.disabled = true;
@@ -816,6 +1092,12 @@
 
             // Capturar selfie al instante
             const fotoBase64 = capturarFrameBase64();
+
+            // Feedback Sensorial Inmediato (Punto 5): Shutter click + Flash blanco + Sello verde + Vibración
+            dispararFlashCamara();
+            reproducirSonidoObturador();
+            mostrarSelloCamara(`📸 ${tipo} REGISTRADA`);
+            if ("vibrate" in navigator) navigator.vibrate([70, 30, 70]);
 
             const punchData = {
                 empleado_nombre: obrero,
@@ -907,6 +1189,17 @@
                             sincEnProgreso = false;
                             actualizarContadorPendientes();
                         };
+
+                        // Verificar si el servidor notificó que se requiere re-enrolamiento biométrico (Punto 2)
+                        const reqReenrol = resJson.resultados && resJson.resultados.some(r => r.error === 'REQUIERE_REENROLAMIENTO');
+                        if (reqReenrol) {
+                            setTimeout(() => {
+                                alert("⚠️ AVISO DE IDENTIFICACIÓN FACIAL:\n\nLa administración ha solicitado actualizar tu registro fotográfico biométrico. Por favor procede a registrar tus fotos actualizadas.");
+                                const nom = localStorage.getItem("rpcs_nombre");
+                                const tel = localStorage.getItem("rpcs_telefono") || "";
+                                if (nom) iniciarProcesoEnrolamiento(nom, tel);
+                            }, 500);
+                        }
                     } else {
                         sincEnProgreso = false;
                         actualizarContadorPendientes();
@@ -1037,6 +1330,47 @@
 
         ui.btnCambiar.addEventListener('click', abrirModalPerfil);
 
+        let pendienteEnrolamiento = { nombre: '', telefono: '' };
+
+        function abrirModalConsentimientoLegal(nombre, telefono) {
+            pendienteEnrolamiento = {
+                nombre: nombre || localStorage.getItem("rpcs_nombre") || "",
+                telefono: telefono || localStorage.getItem("rpcs_telefono") || ""
+            };
+            const chk = document.getElementById('chkAceptoBiometriaLegal');
+            const btn = document.getElementById('btnAceptarConsentimientoLegal');
+            if (chk) chk.checked = false;
+            if (btn) btn.disabled = true;
+            const modal = document.getElementById('modalConsentimientoLegal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        async function procederConEnrolamientoTrasConsentimiento() {
+            const modal = document.getElementById('modalConsentimientoLegal');
+            if (modal) modal.classList.add('hidden');
+            
+            const { nombre, telefono } = pendienteEnrolamiento;
+            if (!nombre) return;
+
+            // Registrar consentimiento legal en servidor (Punto 12)
+            try {
+                await fetch('/api/obrero/consentimiento_biometrico', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: nombre, telefono: telefono })
+                });
+            } catch (e) {
+                console.warn("Consentimiento registrado localmente");
+            }
+
+            // Proceder con la captura de fotos
+            await ejecutarEnrolamientoFacial(nombre, telefono);
+        }
+
+        function iniciarProcesoEnrolamiento(nombre, telefono) {
+            abrirModalConsentimientoLegal(nombre, telefono);
+        }
+
         ui.btnGuardarPerfil.addEventListener('click', async () => {
             const nom = ui.inputNombre.value.trim();
             const tel = ui.inputTelefono ? ui.inputTelefono.value.trim() : "";
@@ -1050,7 +1384,7 @@
 
             // Preguntar si desea enrolar su biometría en el servidor
             if (confirm(`¿Deseas registrar tu biometría facial para ${nom} ahora mismo?`)) {
-                await ejecutarEnrolamientoFacial(nom, tel);
+                iniciarProcesoEnrolamiento(nom, tel);
             }
         });
 
@@ -1059,10 +1393,17 @@
             
             // Foto 1
             alert("PASO 1: Mira a la cámara sin accesorios y presiona Aceptar");
+            dispararFlashCamara();
+            reproducirSonidoObturador();
+            mostrarSelloCamara("📸 FOTO 1 CAPTURADA");
             const foto1B64 = capturarFrameBase64();
             
             // Foto 2
+            await new Promise(r => setTimeout(r, 600));
             alert("PASO 2: Colócate tu casco y gafas de obra y presiona Aceptar");
+            dispararFlashCamara();
+            reproducirSonidoObturador();
+            mostrarSelloCamara("📸 FOTO 2 CAPTURADA");
             const foto2B64 = capturarFrameBase64();
 
             const b1 = await (await fetch(foto1B64)).blob();
@@ -1081,6 +1422,7 @@
                 const data = await res.json();
                 if (data.status === "ok") {
                     alert(`✅ ¡Excelente! Tu biometría ha quedado registrada con ${data.total_vectores} perfiles.`);
+                    verificarRolUsuario(nombre);
                 } else {
                     alert("Aviso: " + (data.error || "No se pudo completar el registro biométrico. Podrás enrolarte después."));
                 }
@@ -1263,10 +1605,191 @@
                         foremanBar.style.display = 'none';
                         if (badgeRol) badgeRol.style.display = 'none';
                     }
+
+                    // Permiso de horas trabajadas (Punto 10 - Nivel Obrero)
+                    const workerHoursBar = document.getElementById('workerHoursBar');
+                    if (workerHoursBar) {
+                        if (data.bloquear_horas_resumen) {
+                            workerHoursBar.classList.add('hidden');
+                            workerHoursBar.style.display = 'none';
+                        } else {
+                            workerHoursBar.classList.remove('hidden');
+                            workerHoursBar.style.display = 'block';
+                        }
+                    }
+
+                    // Forzar re-enrolamiento si admin lo solicitó (Punto 2)
+                    if (data.requiere_reenrolamiento) {
+                        setTimeout(() => {
+                            alert("⚠️ AVISO IMPORTANTE DE IDENTIDAD:\n\nLa administración ha solicitado actualizar tu registro fotográfico biométrico. Por favor toma tus fotos actualizadas para continuar.");
+                            iniciarProcesoEnrolamiento(nombre, data.telefono || '');
+                        }, 600);
+                    }
+
+                    // Verificar comunicados oficiales pendientes (Punto 11)
+                    verificarComunicadosPendientes(nombre, ui.selProyecto ? ui.selProyecto.value : '');
                 }
             } catch (e) {
                 console.warn('No se pudo verificar rol en línea:', e);
             }
+        }
+
+        // ================= RESUMEN DE HORAS TRABAJADAS (Punto 10) =================
+        function abrirModalMisHoras() {
+            const modal = document.getElementById('modalMisHoras');
+            if (!modal) return;
+            
+            // Establecer rango por defecto: Lunes de esta semana hasta hoy
+            const hoy = new Date();
+            const diaSem = hoy.getDay();
+            const diffLunes = (diaSem === 0 ? -6 : 1) - diaSem;
+            const lunes = new Date(hoy);
+            lunes.setDate(hoy.getDate() + diffLunes);
+            
+            const fmt = (d) => {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+            
+            const inDesde = document.getElementById('filtroHorasDesde');
+            const inHasta = document.getElementById('filtroHorasHasta');
+            if (inDesde && !inDesde.value) inDesde.value = fmt(lunes);
+            if (inHasta && !inHasta.value) inHasta.value = fmt(hoy);
+
+            modal.classList.remove('hidden');
+            consultarMisHoras();
+        }
+
+        async function consultarMisHoras() {
+            const nombre = localStorage.getItem("rpcs_nombre");
+            if (!nombre) return alert("Por favor ingresa primero tu nombre.");
+            
+            const desde = document.getElementById('filtroHorasDesde').value;
+            const hasta = document.getElementById('filtroHorasHasta').value;
+            const lista = document.getElementById('listaJornadasObrero');
+            const txtTotal = document.getElementById('txtTotalHorasObrero');
+            const txtRango = document.getElementById('txtRangoHorasObrero');
+
+            lista.innerHTML = '<div style="text-align:center; padding:15px; color:#94a3b8;">⏳ Calculando horas trabajadas...</div>';
+
+            try {
+                const res = await fetch(`/api/obrero/mis_horas?nombre=${encodeURIComponent(nombre)}&desde=${desde || ''}&hasta=${hasta || ''}`);
+                const data = await res.json();
+                
+                if (data.status === 'ok') {
+                    txtTotal.innerText = `${data.total_horas} hrs`;
+                    txtRango.innerText = `${data.desde} al ${data.hasta} (${data.dias_trabajados} días)`;
+                    
+                    if (!data.jornadas || data.jornadas.length === 0) {
+                        lista.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:12px;">No se registraron horas trabajadas en este período.</div>';
+                        return;
+                    }
+
+                    lista.innerHTML = '';
+                    data.jornadas.forEach(j => {
+                        const card = document.createElement('div');
+                        card.style.cssText = 'background:var(--box-sub-bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;';
+                        card.innerHTML = `
+                            <div>
+                                <div style="font-weight:700; font-size:13px; color:var(--text-main);">📅 ${j.fecha}</div>
+                                <div style="font-size:11px; color:var(--text-sub); margin-top:2px;">
+                                    🟢 ${j.entrada || '--:--'} • 🔴 ${j.salida || (j.horas > 0 ? 'Fin turno' : 'En turno')}
+                                </div>
+                                <div style="font-size:10px; color:#38bdf8; margin-top:2px;">🏗️ ${j.proyecto || 'Obra'}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:16px; font-weight:800; color:#10b981;">${j.horas}h</div>
+                                <div style="font-size:10px; color:var(--text-sub);">registradas</div>
+                            </div>
+                        `;
+                        lista.appendChild(card);
+                    });
+                } else {
+                    txtTotal.innerText = '0.0 hrs';
+                    txtRango.innerText = 'No autorizado';
+                    lista.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444; font-size:13px; font-weight:600;">⚠️ ${data.error || 'La visualización de horas no está habilitada para tu usuario u obra actual.'}</div>`;
+                }
+            } catch (e) {
+                lista.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444; font-size:12px;">Error al conectar con el servidor para consultar horas.</div>';
+            }
+        }
+
+        // ================= COMUNICADOS Y AVISOS OFICIALES (Punto 11) =================
+        let comunicadoActualId = null;
+        let colaComunicados = [];
+
+        async function verificarComunicadosPendientes(nombre, obra) {
+            if (!nombre) return;
+            try {
+                const url = `/api/comunicados/pendientes?nombre=${encodeURIComponent(nombre)}&proyecto=${encodeURIComponent(obra || '')}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.status === 'ok' && data.comunicados && data.comunicados.length > 0) {
+                    colaComunicados = data.comunicados;
+                    mostrarSiguienteComunicado();
+                }
+            } catch (e) {
+                console.warn("No se pudieron verificar comunicados pendientes:", e);
+            }
+        }
+
+        function mostrarSiguienteComunicado() {
+            if (colaComunicados.length === 0) {
+                const modal = document.getElementById('modalComunicadoOficial');
+                if (modal) modal.classList.add('hidden');
+                comunicadoActualId = null;
+                return;
+            }
+
+            const com = colaComunicados[0];
+            comunicadoActualId = com.id;
+
+            const modal = document.getElementById('modalComunicadoOficial');
+            const tit = document.getElementById('comunicadoTitulo');
+            const fec = document.getElementById('comunicadoFecha');
+            const msg = document.getElementById('comunicadoMensaje');
+
+            if (tit) tit.innerText = com.titulo;
+            if (fec) fec.innerText = `Publicado: ${com.created_at || 'Hoy'}`;
+            if (msg) msg.innerText = com.mensaje;
+
+            if (modal) modal.classList.remove('hidden');
+
+            // Feedback de alerta sonora y vibración tipo alarma
+            reproducirSonidoAlertaComunicado();
+            if ("vibrate" in navigator) {
+                navigator.vibrate([250, 100, 250, 100, 450]);
+            }
+        }
+
+        async function confirmarLecturaComunicadoActual() {
+            if (!comunicadoActualId) return;
+            const btn = document.getElementById('btnConfirmarComunicado');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Registrando recibido...";
+            }
+            const nombre = localStorage.getItem("rpcs_nombre") || "Obrero";
+            try {
+                await fetch(`/api/comunicados/${comunicadoActualId}/confirmar_lectura`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado_nombre: nombre })
+                });
+            } catch (e) {
+                console.warn("Firma guardada localmente");
+            }
+            
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "✅ Entendido y Recibido";
+            }
+
+            // Quitar este comunicado de la cola y mostrar el siguiente si hay más
+            colaComunicados.shift();
+            mostrarSiguienteComunicado();
         }
 
         // ================= GESTIÓN DE TAREAS Y ACTIVIDADES (FOREMAN) =================
@@ -1582,10 +2105,28 @@
             cargarProyectos();
             await encenderCamara("user");
 
-            // Registrar Service Worker para PWA Offline
+            // Registrar Service Worker para PWA Offline y Alertas Push
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/static/sw.js').then(reg => {
+                navigator.serviceWorker.register('/static/sw.js').then(async (reg) => {
                     console.log('ServiceWorker registrado:', reg.scope);
+                    
+                    // Registrar suscripción Push si el navegador lo permite
+                    if ('Notification' in window && 'PushManager' in window) {
+                        try {
+                            const sub = await reg.pushManager.getSubscription();
+                            if (sub) {
+                                const nom = localStorage.getItem("rpcs_nombre") || "Anonimo";
+                                fetch('/api/push/subscribe', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        empleado_nombre: nom,
+                                        subscription_info: JSON.stringify(sub)
+                                    })
+                                }).catch(()=>{});
+                            }
+                        } catch(e) {}
+                    }
                 }).catch(err => console.log('SW Error:', err));
             }
         }

@@ -2,6 +2,22 @@ import sqlite3
 import json
 import os
 from datetime import datetime
+import zoneinfo
+
+# Zona horaria oficial de las obras: Seattle, Washington (Pacific Time)
+SEATTLE_TZ = zoneinfo.ZoneInfo("America/Los_Angeles")
+
+def obtener_ahora_seattle():
+    """Retorna datetime actual localizado en la zona horaria de Seattle (Pacific Time)."""
+    return datetime.now(SEATTLE_TZ)
+
+def obtener_fecha_seattle_hoy():
+    """Retorna fecha YYYY-MM-DD actual en Seattle."""
+    return obtener_ahora_seattle().strftime("%Y-%m-%d")
+
+def obtener_hora_seattle_ahora():
+    """Retorna hora HH:MM:SS actual en Seattle."""
+    return obtener_ahora_seattle().strftime("%H:%M:%S")
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "asistencia.db")
 
@@ -41,6 +57,14 @@ def init_db():
         cursor.execute("ALTER TABLE empleados ADD COLUMN rol TEXT DEFAULT 'worker'")
     if "obras_asignadas" not in cols_emp:
         cursor.execute("ALTER TABLE empleados ADD COLUMN obras_asignadas TEXT DEFAULT 'ALL'")
+    if "requiere_reenrolamiento" not in cols_emp:
+        cursor.execute("ALTER TABLE empleados ADD COLUMN requiere_reenrolamiento INTEGER DEFAULT 0")
+    if "bloquear_horas_resumen" not in cols_emp:
+        cursor.execute("ALTER TABLE empleados ADD COLUMN bloquear_horas_resumen INTEGER DEFAULT 0")
+    if "consentimiento_biometrico" not in cols_emp:
+        cursor.execute("ALTER TABLE empleados ADD COLUMN consentimiento_biometrico INTEGER DEFAULT 0")
+    if "fecha_consentimiento" not in cols_emp:
+        cursor.execute("ALTER TABLE empleados ADD COLUMN fecha_consentimiento TEXT")
 
     # Tabla de Proyectos / Obras
     cursor.execute("""
@@ -64,6 +88,8 @@ def init_db():
         cursor.execute("ALTER TABLE proyectos ADD COLUMN pisos TEXT DEFAULT ''")
     if "actividades" not in cols_proy:
         cursor.execute("ALTER TABLE proyectos ADD COLUMN actividades TEXT DEFAULT ''")
+    if "mostrar_horas_obreros" not in cols_proy:
+        cursor.execute("ALTER TABLE proyectos ADD COLUMN mostrar_horas_obreros INTEGER DEFAULT 1")
 
     # Asegurar que las obras existentes tengan valores iniciales de pisos y actividades si están vacías
     default_pisos = "Sótano 1, Piso 1, Piso 2, Piso 3, Azotea"
@@ -143,6 +169,42 @@ def init_db():
             """, proyectos_iniciales)
         cursor.execute("INSERT OR REPLACE INTO sistema_config (clave, valor) VALUES ('inicializado', '1')")
 
+    # Tabla de Comunicados Oficiales
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS comunicados (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        titulo TEXT NOT NULL,
+        mensaje TEXT NOT NULL,
+        tipo_entrega TEXT DEFAULT 'IN_APP', -- PUSH o IN_APP
+        alcance TEXT DEFAULT 'TODOS', -- TODOS, OBRA, PERSONAS
+        destinos_json TEXT DEFAULT '[]', -- Lista JSON de obras o nombres
+        fecha_creacion TEXT NOT NULL,
+        activo INTEGER DEFAULT 1
+    )
+    """)
+
+    # Tabla de Acuses de Recibo / Confirmaciones de Comunicados
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS comunicados_lecturas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comunicado_id INTEGER NOT NULL,
+        empleado_nombre TEXT NOT NULL,
+        fecha_lectura TEXT NOT NULL,
+        FOREIGN KEY(comunicado_id) REFERENCES comunicados(id)
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_comunicados_lecturas ON comunicados_lecturas(comunicado_id, empleado_nombre)")
+
+    # Tabla de Suscripciones Web Push para alertas en pantalla de bloqueo
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        empleado_nombre TEXT NOT NULL UNIQUE,
+        subscription_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """)
+
     # Asegurar que Diego conserve rol de admin si existe en la base de datos
     cursor.execute("""
         UPDATE empleados 
@@ -170,14 +232,14 @@ def guardar_o_actualizar_empleado(nombre, telefono, puesto, nuevos_vectores, fot
         foto_final = foto_perfil if foto_perfil else row["foto_perfil"]
         cursor.execute("""
         UPDATE empleados 
-        SET vectores_json = ?, puesto = ?, telefono = ?, foto_perfil = ? 
+        SET vectores_json = ?, puesto = ?, telefono = ?, foto_perfil = ?, requiere_reenrolamiento = 0
         WHERE id = ?
         """, (json.dumps(vectores_existentes), puesto, telefono, foto_final, row["id"]))
     else:
         cursor.execute("""
-        INSERT INTO empleados (nombre, telefono, puesto, foto_perfil, vectores_json, fecha_registro)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (nombre, telefono, puesto, foto_perfil, json.dumps(nuevos_vectores), datetime.now().isoformat()))
+        INSERT INTO empleados (nombre, telefono, puesto, foto_perfil, vectores_json, fecha_registro, requiere_reenrolamiento)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
+        """, (nombre, telefono, puesto, foto_perfil, json.dumps(nuevos_vectores), obtener_ahora_seattle().isoformat()))
 
     conn.commit()
     conn.close()
@@ -190,7 +252,9 @@ def obtener_empleado(nombre):
     conn.close()
     if row:
         d = dict(row)
-        d["vectores"] = json.loads(d["vectores_json"])
+        d["vectores"] = json.loads(d["vectores_json"]) if d.get("vectores_json") else []
+        d["requiere_reenrolamiento"] = d.get("requiere_reenrolamiento", 0)
+        d["bloquear_horas_resumen"] = d.get("bloquear_horas_resumen", 0)
         return d
     return None
 
@@ -251,22 +315,23 @@ def obtener_obras_empleado(nombre):
 
 def obtener_estado_hoy_empleado(nombre):
     """
-    Retorna el estado de marcaje de hoy para un trabajador:
-    - 'ACTIVO' si su último marcaje hoy fue ENTRADA (no puede marcar entrada otra vez).
-    - 'SALIO' si su último marcaje hoy fue SALIDA.
-    - 'SIN_MARCAJE' si no tiene ningún registro hoy.
+    Retorna el estado de marcaje de hoy para un trabajador según la hora oficial de Seattle:
+    - 'ACTIVO' si su último marcaje HOY en Seattle fue ENTRADA (no puede marcar entrada otra vez).
+    - 'SALIO' si su último marcaje HOY en Seattle fue SALIDA.
+    - 'SIN_MARCAJE' si no tiene ningún registro hoy en Seattle.
     """
     conn = get_connection()
     cursor = conn.cursor()
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy_seattle = obtener_fecha_seattle_hoy()
+
+    # 1. Consultar marcajes que pertenezcan a la fecha de hoy en Seattle
     cursor.execute("""
         SELECT id, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
         FROM marcajes
         WHERE empleado_nombre = ? AND (timestamp_local LIKE ? OR timestamp_servidor LIKE ?)
         ORDER BY id DESC LIMIT 1
-    """, (nombre, f"{hoy}%", f"{hoy}%"))
+    """, (nombre, f"{hoy_seattle}%", f"{hoy_seattle}%"))
     row = cursor.fetchone()
-    conn.close()
 
     if row:
         tipo = (row["tipo"] or "").upper()
@@ -279,6 +344,7 @@ def obtener_estado_hoy_empleado(nombre):
         else:
             hora_str = ts[-8:]
 
+        conn.close()
         return {
             "estado": "ACTIVO" if tipo == "ENTRADA" else "SALIO",
             "ultimo_tipo": tipo,
@@ -287,6 +353,38 @@ def obtener_estado_hoy_empleado(nombre):
             "marcaje_id": row["id"]
         }
 
+    # 2. Si no tiene marcajes hoy en Seattle:
+    # Auto-cierre de jornadas pasadas: si su último marcaje en la historia fue ENTRADA de un día anterior,
+    # cerrar esa jornada automáticamente a las 23:59:59 del día de origen para no dejarlo trabado.
+    cursor.execute("""
+        SELECT id, tipo, timestamp_local, timestamp_servidor, proyecto_nombre
+        FROM marcajes
+        WHERE empleado_nombre = ?
+        ORDER BY id DESC LIMIT 1
+    """, (nombre,))
+    ultimo_historico = cursor.fetchone()
+    if ultimo_historico and (ultimo_historico["tipo"] or "").upper() == "ENTRADA":
+        ts_ant = ultimo_historico["timestamp_local"] or ultimo_historico["timestamp_servidor"] or ""
+        fecha_ant = ts_ant[:10] if len(ts_ant) >= 10 else hoy_seattle
+        if fecha_ant < hoy_seattle:
+            ts_salida_auto = f"{fecha_ant}T23:59:59"
+            cursor.execute("""
+                INSERT INTO marcajes (
+                    empleado_nombre, tipo, timestamp_local, timestamp_servidor,
+                    proyecto_nombre, lat, lon, distancia_metros, gps_accuracy,
+                    metodo_ubicacion, similitud_facial, estado_auditoria,
+                    offline_sincronizado, notas
+                ) VALUES (?, 'SALIDA', ?, ?, ?, NULL, NULL, 0, 0, 'AUTO_SISTEMA', 100.0, 'APROBADO', 1, 'SALIDA AUTOMÁTICA (FIN DE TURNO)')
+            """, (nombre, ts_salida_auto, ts_salida_auto, ultimo_historico["proyecto_nombre"]))
+            # Cerrar actividades abiertas del turno anterior
+            cursor.execute("""
+                UPDATE actividades_diarias
+                SET hora_fin = '23:59:59'
+                WHERE empleado_nombre = ? AND fecha = ? AND (hora_fin IS NULL OR hora_fin = '')
+            """, (nombre, fecha_ant))
+            conn.commit()
+
+    conn.close()
     return {
         "estado": "SIN_MARCAJE",
         "ultimo_tipo": None,
@@ -379,7 +477,7 @@ def registrar_marcaje(datos):
         datos["empleado_nombre"],
         datos["tipo"],
         datos["timestamp_local"],
-        datos.get("timestamp_servidor", datetime.now().isoformat()),
+        datos.get("timestamp_servidor", obtener_ahora_seattle().isoformat()),
         datos["proyecto_nombre"],
         datos.get("lat"),
         datos.get("lon"),
@@ -482,7 +580,7 @@ def reasignar_proyecto_marcaje(marcaje_id: int, nuevo_proyecto_nombre: str, reas
 
     obra_anterior = marcaje["proyecto_nombre"]
     empleado_nombre = marcaje["empleado_nombre"]
-    fecha_hoy = (marcaje["timestamp_local"] or datetime.now().isoformat())[:10]
+    fecha_hoy = (marcaje["timestamp_local"] or obtener_ahora_seattle().isoformat())[:10]
 
     # Lista de IDs a modificar
     ids_a_modificar = [marcaje_id]
@@ -576,10 +674,10 @@ def eliminar_marcaje(marcaje_id):
     conn.commit()
     conn.close()
 
-def obtener_metricas_dashboard():
+def obtener_metricas_dashboard(proyecto_nombre=None):
     conn = get_connection()
     cursor = conn.cursor()
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = obtener_fecha_seattle_hoy()
 
     cursor.execute("SELECT COUNT(*) as total FROM marcajes WHERE timestamp_local LIKE ?", (f"{hoy}%",))
     total_hoy = cursor.fetchone()["total"]
@@ -596,6 +694,15 @@ def obtener_metricas_dashboard():
     cursor.execute("SELECT COUNT(DISTINCT empleado_nombre) as activos FROM marcajes WHERE timestamp_local LIKE ? AND tipo = 'ENTRADA'", (f"{hoy}%",))
     trabajadores_activos = cursor.fetchone()["activos"]
 
+    # Conteo dinámico desglosado por cada obra activa hoy en Seattle
+    cursor.execute("""
+        SELECT proyecto_nombre, COUNT(DISTINCT empleado_nombre) as activos
+        FROM marcajes 
+        WHERE timestamp_local LIKE ? AND tipo = 'ENTRADA'
+        GROUP BY proyecto_nombre
+    """, (f"{hoy}%",))
+    activos_por_obra = {r["proyecto_nombre"]: r["activos"] for r in cursor.fetchall()}
+
     conn.close()
     return {
         "fecha": hoy,
@@ -603,7 +710,8 @@ def obtener_metricas_dashboard():
         "aprobados_hoy": aprobados,
         "alertas_fraude_hoy": fraudes,
         "marcajes_bajo_losa_qr": marcajes_qr,
-        "trabajadores_activos_hoy": trabajadores_activos
+        "trabajadores_activos_hoy": trabajadores_activos,
+        "activos_por_obra": activos_por_obra
     }
 
 def obtener_resumen_dia_foreman(foreman_nombre=None):
@@ -614,7 +722,7 @@ def obtener_resumen_dia_foreman(foreman_nombre=None):
     """
     conn = get_connection()
     cursor = conn.cursor()
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = obtener_fecha_seattle_hoy()
 
     # Verificar si el usuario consultante tiene filtro de obras
     obras_permitidas = None
@@ -762,7 +870,7 @@ def asignar_actividad_empleados(empleados_nombres, proyecto_nombre, piso, activi
     """
     conn = get_connection()
     cursor = conn.cursor()
-    ahora = datetime.now()
+    ahora = obtener_ahora_seattle()
     fecha_hoy = ahora.strftime("%Y-%m-%d")
     hora_str = hora_personalizada or ahora.strftime("%H:%M:%S")
 
@@ -796,7 +904,7 @@ def cerrar_actividades_abiertas_empleado(empleado_nombre, hora_cierre=None, fech
     """
     conn = get_connection()
     cursor = conn.cursor()
-    ahora = datetime.now()
+    ahora = obtener_ahora_seattle()
     fecha_hoy = fecha or ahora.strftime("%Y-%m-%d")
     
     if hora_cierre:
@@ -893,8 +1001,8 @@ def obtener_reporte_actividades_costos(fecha_inicio=None, fecha_fin=None, proyec
             pass
 
     reporte = []
-    ahora_hora = datetime.now().strftime("%H:%M:%S")
-    hoy_str = datetime.now().strftime("%Y-%m-%d")
+    ahora_hora = obtener_hora_seattle_ahora()
+    hoy_str = obtener_fecha_seattle_hoy()
 
     for f in filas:
         h_ini = f["hora_inicio"]
@@ -929,3 +1037,276 @@ def obtener_reporte_actividades_costos(fecha_inicio=None, fecha_fin=None, proyec
         })
 
     return reporte
+
+
+# ----------------- RE-ENROLAMIENTO Y CONSENTIMIENTO BIOMÉTRICO -----------------
+
+def forzar_reenrolamiento_empleados(empleado_ids: list = None, todos: bool = False):
+    """
+    Invalida los vectores faciales y marca la bandera requiere_reenrolamiento = 1.
+    Puede aplicarse a todos o a una lista específica de IDs.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    if todos:
+        cursor.execute("UPDATE empleados SET vectores_json = '[]', requiere_reenrolamiento = 1")
+    elif empleado_ids:
+        placeholders = ",".join(["?"] * len(empleado_ids))
+        cursor.execute(f"UPDATE empleados SET vectores_json = '[]', requiere_reenrolamiento = 1 WHERE id IN ({placeholders})", empleado_ids)
+    afectados = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "afectados": afectados}
+
+def registrar_consentimiento_biometrico(empleado_nombre: str):
+    """Registra la aceptación legal formal de biometría conforme a RCW 19.375 de Washington State."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    fecha = obtener_ahora_seattle().isoformat()
+    cursor.execute("""
+        UPDATE empleados 
+        SET consentimiento_biometrico = 1, fecha_consentimiento = ? 
+        WHERE nombre = ?
+    """, (fecha, empleado_nombre))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "fecha": fecha}
+
+# ----------------- DIRECTORIO DE PERSONAL (.CSV) -----------------
+
+def obtener_directorio_personal():
+    """Retorna lista completa del personal con teléfonos, roles, obras y estado biométrico."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            id, nombre, telefono, puesto, rol, obras_asignadas, activo,
+            CASE 
+                WHEN (vectores_json IS NOT NULL AND vectores_json != '' AND vectores_json != '[]' AND (requiere_reenrolamiento IS NULL OR requiere_reenrolamiento = 0)) 
+                THEN 1 ELSE 0 
+            END as enrolado,
+            COALESCE(requiere_reenrolamiento, 0) as requiere_reenrolamiento,
+            COALESCE(bloquear_horas_resumen, 0) as bloquear_horas_resumen,
+            COALESCE(consentimiento_biometrico, 0) as consentimiento_biometrico,
+            fecha_registro
+        FROM empleados
+        ORDER BY nombre ASC
+    """)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return rows
+
+# ----------------- PERMISOS Y RESUMEN DE HORAS TRABAJADAS -----------------
+
+def actualizar_permiso_horas_proyecto(proyecto_id: int, mostrar: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE proyectos SET mostrar_horas_obreros = ? WHERE id = ?", (1 if mostrar else 0, proyecto_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+def actualizar_permiso_horas_empleado(empleado_id: int, bloquear: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE empleados SET bloquear_horas_resumen = ? WHERE id = ?", (1 if bloquear else 0, empleado_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+def obtener_resumen_horas_obrero(empleado_nombre: str, fecha_inicio: str = None, fecha_fin: str = None):
+    """
+    Calcula el resumen de horas trabajadas para un obrero según rango de fechas.
+    Verifica que el obrero no esté bloqueado y que la obra permita ver horas.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 1. Verificar bloqueo individual
+    cursor.execute("SELECT bloquear_horas_resumen FROM empleados WHERE nombre = ?", (empleado_nombre,))
+    emp = cursor.fetchone()
+    if emp and emp["bloquear_horas_resumen"] == 1:
+        conn.close()
+        return {"status": "error", "permitido": False, "error": "Acceso a consulta de horas no habilitado para este usuario."}
+
+    # 2. Obras con permiso activado
+    cursor.execute("SELECT nombre, mostrar_horas_obreros FROM proyectos")
+    permisos_obras = {r["nombre"]: (r["mostrar_horas_obreros"] == 1) for r in cursor.fetchall()}
+
+    # 3. Rango de fechas (por defecto últimos 7 días en Seattle)
+    if not fecha_inicio or not fecha_fin:
+        hoy = obtener_fecha_seattle_hoy()
+        fecha_fin = hoy
+        try:
+            from datetime import timedelta
+            h_dt = datetime.strptime(hoy, "%Y-%m-%d")
+            fecha_inicio = (h_dt - timedelta(days=6)).strftime("%Y-%m-%d")
+        except Exception:
+            fecha_inicio = hoy
+
+    cursor.execute("""
+        SELECT id, tipo, timestamp_local, proyecto_nombre
+        FROM marcajes
+        WHERE empleado_nombre = ? 
+          AND timestamp_local >= ? 
+          AND timestamp_local <= ? || 'T23:59:59'
+        ORDER BY timestamp_local ASC
+    """, (empleado_nombre, fecha_inicio, fecha_fin))
+    marcajes = cursor.fetchall()
+    conn.close()
+
+    # Agrupar entradas y salidas por (fecha, obra)
+    jornadas = {}
+    for m in marcajes:
+        ts = m["timestamp_local"] or ""
+        fecha = ts[:10]
+        obra = m["proyecto_nombre"]
+        hora = ts[11:19] if len(ts) >= 19 else ts[11:]
+        clave = (fecha, obra)
+        if clave not in jornadas:
+            jornadas[clave] = {"entradas": [], "salidas": []}
+        if m["tipo"] == "ENTRADA":
+            jornadas[clave]["entradas"].append(hora)
+        elif m["tipo"] == "SALIDA":
+            jornadas[clave]["salidas"].append(hora)
+
+    desglose = []
+    total_horas = 0.0
+
+    for (fecha, obra), datos in sorted(jornadas.items(), key=lambda x: x[0][0], reverse=True):
+        permitido_obra = permisos_obras.get(obra, True)
+        if not permitido_obra:
+            continue
+
+        h_entrada = datos["entradas"][0] if datos["entradas"] else "N/R"
+        h_salida = datos["salidas"][-1] if datos["salidas"] else "En curso"
+        horas = 0.0
+        if h_entrada != "N/R" and h_salida != "En curso":
+            horas = calcular_horas_entre(h_entrada, h_salida)
+        elif h_entrada != "N/R" and fecha == obtener_fecha_seattle_hoy():
+            horas = calcular_horas_entre(h_entrada, obtener_hora_seattle_ahora())
+
+        total_horas += horas
+        desglose.append({
+            "fecha": fecha,
+            "proyecto": obra,
+            "entrada": h_entrada,
+            "salida": h_salida,
+            "horas": round(horas, 2)
+        })
+
+    return {
+        "status": "ok",
+        "permitido": True,
+        "empleado": empleado_nombre,
+        "desde": fecha_inicio,
+        "hasta": fecha_fin,
+        "fecha_inicio": fecha_inicio,
+        "fecha_fin": fecha_fin,
+        "total_horas": round(total_horas, 2),
+        "dias_trabajados": len(desglose),
+        "jornadas": desglose
+    }
+
+# ----------------- MÓDULO DE COMUNICADOS Y PUSH -----------------
+
+def crear_comunicado(titulo, mensaje, tipo_entrega="IN_APP", alcance="TODOS", destinos=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    destinos_json = json.dumps(destinos or [])
+    fecha = obtener_ahora_seattle().isoformat()
+    cursor.execute("""
+        INSERT INTO comunicados (titulo, mensaje, tipo_entrega, alcance, destinos_json, fecha_creacion, activo)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+    """, (titulo, mensaje, tipo_entrega, alcance, destinos_json, fecha))
+    com_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "id": com_id, "fecha": fecha}
+
+def obtener_comunicados_pendientes_empleado(empleado_nombre: str, obra_actual: str = None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT c.* FROM comunicados c
+        WHERE c.activo = 1 
+          AND c.id NOT IN (
+              SELECT comunicado_id FROM comunicados_lecturas WHERE empleado_nombre = ?
+          )
+        ORDER BY c.id DESC
+    """, (empleado_nombre,))
+    rows = cursor.fetchall()
+    pendientes = []
+
+    # Obtener obras asignadas del empleado
+    cursor.execute("SELECT obras_asignadas FROM empleados WHERE nombre = ?", (empleado_nombre,))
+    emp_row = cursor.fetchone()
+    obras_asignadas = (emp_row["obras_asignadas"] if emp_row else "") or "ALL"
+
+    for r in rows:
+        alcance = r["alcance"]
+        destinos = json.loads(r["destinos_json"] or "[]")
+        aplica = False
+
+        if alcance == "TODOS":
+            aplica = True
+        elif alcance == "OBRA":
+            if obra_actual and obra_actual in destinos:
+                aplica = True
+            elif obras_asignadas == "ALL" or any(d in obras_asignadas for d in destinos):
+                aplica = True
+        elif alcance == "PERSONAS":
+            if empleado_nombre in destinos:
+                aplica = True
+
+        if aplica:
+            pendientes.append({
+                "id": r["id"],
+                "titulo": r["titulo"],
+                "mensaje": r["mensaje"],
+                "tipo_entrega": r["tipo_entrega"],
+                "fecha_creacion": r["fecha_creacion"]
+            })
+
+    conn.close()
+    return pendientes
+
+def registrar_lectura_comunicado(comunicado_id: int, empleado_nombre: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    fecha = obtener_ahora_seattle().isoformat()
+    cursor.execute("""
+        INSERT OR IGNORE INTO comunicados_lecturas (comunicado_id, empleado_nombre, fecha_lectura)
+        VALUES (?, ?, ?)
+    """, (comunicado_id, empleado_nombre, fecha))
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "fecha_lectura": fecha}
+
+def listar_comunicados_admin():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM comunicados ORDER BY id DESC LIMIT 50")
+    comunicados = [dict(r) for r in cursor.fetchall()]
+    for c in comunicados:
+        c["destinos"] = json.loads(c["destinos_json"] or "[]")
+        cursor.execute("SELECT empleado_nombre, fecha_lectura FROM comunicados_lecturas WHERE comunicado_id = ?", (c["id"],))
+        c["lecturas"] = [dict(r) for r in cursor.fetchall()]
+        c["total_lecturas"] = len(c["lecturas"])
+    conn.close()
+    return comunicados
+
+def guardar_suscripcion_push(empleado_nombre: str, sub_json: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    ahora = obtener_ahora_seattle().isoformat()
+    cursor.execute("""
+        INSERT INTO push_subscriptions (empleado_nombre, subscription_json, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(empleado_nombre) DO UPDATE SET 
+            subscription_json = excluded.subscription_json,
+            updated_at = excluded.updated_at
+    """, (empleado_nombre, sub_json, ahora))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}

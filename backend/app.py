@@ -41,7 +41,21 @@ from .database import (
     asignar_actividad_empleados,
     cerrar_actividades_abiertas_empleado,
     obtener_reporte_actividades_costos,
-    obtener_historial_actividades_empleado_dia
+    obtener_historial_actividades_empleado_dia,
+    forzar_reenrolamiento_empleados,
+    registrar_consentimiento_biometrico,
+    actualizar_permiso_horas_proyecto,
+    actualizar_permiso_horas_empleado,
+    obtener_resumen_horas_obrero,
+    obtener_directorio_personal,
+    crear_comunicado,
+    obtener_comunicados_pendientes_empleado,
+    registrar_lectura_comunicado,
+    listar_comunicados_admin,
+    guardar_suscripcion_push,
+    obtener_ahora_seattle,
+    obtener_fecha_seattle_hoy,
+    obtener_hora_seattle_ahora
 )
 from .geofence import validar_posicion_en_obra
 from .biometrics import decodificar_imagen, extraer_vector_rostro, verificar_1_a_1, detectar_borrosidad
@@ -64,7 +78,7 @@ try:
     print("[GDRIVE] Sincronizando con Google Drive al inicio...")
     restaurado = restaurar_db_desde_drive_master()
     if restaurado:
-        print("[GDRIVE] ✅ Base de datos maestra sincronizada exitosamente desde Google Drive.")
+        print("[GDRIVE] [OK] Base de datos maestra sincronizada exitosamente desde Google Drive.")
     else:
         print("[GDRIVE] Info: Manteniendo base de datos existente o inicializando nueva.")
 except Exception as e:
@@ -107,7 +121,7 @@ def panel_administracion_subpath(path: str):
 
 @app.get("/api/empleado_info")
 def api_empleado_info(nombre: str = Query(...)):
-    """Retorna información del empleado, incluyendo su rol (worker, foreman, admin), obras y estado de hoy."""
+    """Retorna información del empleado, incluyendo rol, obras, permisos y si requiere re-enrolamiento."""
     emp = obtener_empleado(nombre)
     rol = emp.get("rol", "worker") if emp else "worker"
     if not rol:
@@ -116,6 +130,11 @@ def api_empleado_info(nombre: str = Query(...)):
     if not obras:
         obras = "ALL"
     estado_hoy = obtener_estado_hoy_empleado(nombre)
+    requiere_reenrolamiento = emp.get("requiere_reenrolamiento", 0) if emp else 0
+    bloquear_horas = emp.get("bloquear_horas_resumen", 0) if emp else 0
+    consentimiento = emp.get("consentimiento_biometrico", 0) if emp else 0
+    enrolado = (emp is not None and len(emp.get("vectores", [])) > 0 and requiere_reenrolamiento == 0)
+
     return {
         "status": "ok",
         "exists": emp is not None,
@@ -123,6 +142,10 @@ def api_empleado_info(nombre: str = Query(...)):
         "rol": rol,
         "obras_asignadas": obras,
         "telefono": emp.get("telefono", "") if emp else "",
+        "enrolado": enrolado,
+        "requiere_reenrolamiento": bool(requiere_reenrolamiento),
+        "bloquear_horas_resumen": bool(bloquear_horas),
+        "consentimiento_biometrico": bool(consentimiento),
         "estado_hoy": estado_hoy
     }
 
@@ -231,12 +254,26 @@ async def api_actualizar_config_proyecto(proyecto_id: int, payload: dict):
     pisos = payload.get("pisos", "").strip()
     actividades = payload.get("actividades", "").strip()
     actualizar_config_proyecto(proyecto_id, pisos, actividades)
+    if "mostrar_horas_obreros" in payload:
+        mostrar = int(payload.get("mostrar_horas_obreros", 1))
+        actualizar_permiso_horas_proyecto(proyecto_id, mostrar)
     try:
         from .gdrive import sincronizar_db_a_drive_master_async
         sincronizar_db_a_drive_master_async()
     except Exception:
         pass
-    return {"status": "ok", "mensaje": "Pisos y actividades actualizados correctamente"}
+    return {"status": "ok", "mensaje": "Pisos, actividades y permisos actualizados correctamente"}
+
+@app.post("/api/proyectos/{proyecto_id}/permiso_horas")
+def api_proyecto_permiso_horas(proyecto_id: int, payload: dict):
+    mostrar = int(payload.get("mostrar_horas_obreros", 1))
+    actualizar_permiso_horas_proyecto(proyecto_id, mostrar)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return {"status": "ok", "proyecto_id": proyecto_id, "mostrar_horas_obreros": mostrar}
 
 
 @app.delete("/api/proyectos/{proyecto_id}")
@@ -302,6 +339,94 @@ def api_eliminar_empleado(empleado_id: int):
     except Exception:
         pass
     return {"status": "ok", "mensaje": "Trabajador eliminado de la base de datos"}
+
+
+@app.post("/api/empleados/forzar_reenrolamiento")
+def api_forzar_reenrolamiento(payload: dict):
+    """Permite invalidar biometrías obsoletas para forzar nueva foto de perfil."""
+    empleado_ids = payload.get("empleado_ids", [])
+    todos = bool(payload.get("todos", False))
+    res = forzar_reenrolamiento_empleados(empleado_ids, todos)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return res
+
+
+@app.post("/api/empleados/{empleado_id}/permiso_horas")
+def api_empleado_permiso_horas(empleado_id: int, payload: dict):
+    """Bloquea o permite la visualización de horas trabajadas para un empleado específico."""
+    bloquear = int(payload.get("bloquear_horas_resumen", 0))
+    actualizar_permiso_horas_empleado(empleado_id, bloquear)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return {"status": "ok", "empleado_id": empleado_id, "bloquear_horas_resumen": bloquear}
+
+
+@app.get("/api/empleados/directorio_csv")
+def api_descargar_directorio_csv():
+    """Genera y descarga el archivo CSV con la lista del personal y sus teléfonos para importar a nómina o CRM."""
+    personal = obtener_directorio_personal()
+    encabezados = [
+        "ID", "Nombre Completo", "Teléfono", "Puesto", "Rol en Sistema",
+        "Obras Asignadas", "Biometría Facial", "Permiso Ver Horas",
+        "Consentimiento Legal Biometría", "Fecha Registro"
+    ]
+    lineas = [";".join(encabezados)]
+    for p in personal:
+        enrolado_txt = "ENROLADO" if p.get("enrolado") == 1 else "PENDIENTE / REQUERIDO"
+        horas_txt = "BLOQUEADO" if p.get("bloquear_horas_resumen") == 1 else "PERMITIDO"
+        consent_txt = "AUTORIZADO (RCW 19.375)" if p.get("consentimiento_biometrico") == 1 else "PENDIENTE"
+        fila = [
+            str(p.get("id", "")),
+            f'"{p.get("nombre", "")}"',
+            f'"{p.get("telefono", "")}"',
+            f'"{p.get("puesto", "")}"',
+            f'"{p.get("rol", "")}"',
+            f'"{p.get("obras_asignadas", "")}"',
+            enrolado_txt,
+            horas_txt,
+            consent_txt,
+            f'"{p.get("fecha_registro", "")}"'
+        ]
+        lineas.append(";".join(fila))
+
+    csv_bytes = ("\ufeff" + "\r\n".join(lineas)).encode("utf-8")
+    ahora_str = obtener_fecha_seattle_hoy()
+    headers = {
+        "Content-Disposition": f'attachment; filename="Directorio_Personal_Ryan_Pacific_{ahora_str}.csv"'
+    }
+    return StreamingResponse(io.BytesIO(csv_bytes), media_type="text/csv; charset=utf-8", headers=headers)
+
+
+@app.post("/api/obrero/consentimiento_biometrico")
+def api_consentimiento_biometrico(payload: dict):
+    """Guarda la autorización legal formal de biometría del obrero según ley RCW 19.375 de Washington State."""
+    nombre = payload.get("nombre", "").strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="Nombre requerido")
+    res = registrar_consentimiento_biometrico(nombre)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return res
+
+
+@app.get("/api/obrero/mis_horas")
+def api_obrero_mis_horas(
+    nombre: str = Query(...),
+    desde: Optional[str] = Query(None),
+    hasta: Optional[str] = Query(None)
+):
+    """Permite al obrero ver su resumen de horas si la obra y su usuario lo tienen autorizado."""
+    return obtener_resumen_horas_obrero(nombre, desde, hasta)
 
 
 @app.post("/api/enrolar")
@@ -389,7 +514,7 @@ def _procesar_un_marcaje_interno(payload: dict) -> dict:
     nombre = payload.get("empleado_nombre", "").strip()
     tipo = payload.get("tipo", "ENTRADA").upper()
     proy_nombre = payload.get("proyecto_nombre", "")
-    timestamp_local = payload.get("timestamp_local") or datetime.now().isoformat()
+    timestamp_local = payload.get("timestamp_local") or obtener_ahora_seattle().isoformat()
     lat = payload.get("lat")
     lon = payload.get("lon")
     accuracy = payload.get("gps_accuracy")
@@ -399,7 +524,15 @@ def _procesar_un_marcaje_interno(payload: dict) -> dict:
 
     empleado = obtener_empleado(nombre)
 
-    # 0. Verificación Antidoble Marcaje: Impedir registrar ENTRADA si ya está ACTIVO hoy
+    # 0. Verificación de Re-enrolamiento Biométrico Obligatorio (Punto 2)
+    if empleado and (empleado.get("requiere_reenrolamiento") == 1 or not empleado.get("vectores")):
+        return {
+            "status": "error",
+            "error_code": "REQUIERE_REENROLAMIENTO",
+            "error": f"Hola {nombre}. La empresa ha solicitado que actualices tu registro biométrico facial antes de continuar. Por favor toma tu foto oficial ahora."
+        }
+
+    # 0.1 Verificación Antidoble Marcaje: Impedir registrar ENTRADA si ya está ACTIVO hoy en Seattle
     if tipo == "ENTRADA":
         estado_hoy = obtener_estado_hoy_empleado(nombre)
         if estado_hoy and estado_hoy["estado"] == "ACTIVO":
@@ -422,7 +555,7 @@ def _procesar_un_marcaje_interno(payload: dict) -> dict:
         try:
             img = decodificar_imagen(foto_b64)
             if img is not None and img.shape[0] > 10 and img.shape[1] > 10:
-                fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                fecha_str = obtener_ahora_seattle().strftime("%Y%m%d_%H%M%S")
                 nombre_archivo = f"punch_{fecha_str}_{uuid.uuid4().hex[:6]}.jpg"
                 ruta_completa = os.path.join(CAPTURAS_DIR, nombre_archivo)
                 
@@ -603,6 +736,11 @@ async def api_sincronizar_lote(lote: List[dict]):
 def api_eliminar_marcaje(marcaje_id: int):
     """Permite al equipo administrativo borrar registros erróneos o de prueba."""
     eliminar_marcaje(marcaje_id)
+    try:
+        from backend.gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception as e:
+        logger.warning(f"No se pudo sincronizar a Drive tras eliminar marcaje: {e}")
     return {"status": "ok", "mensaje": "Marcaje eliminado correctamente"}
 
 
@@ -616,14 +754,19 @@ def api_reasignar_proyecto_marcaje(marcaje_id: int, payload: dict):
     res = reasignar_proyecto_marcaje(marcaje_id, nuevo_proyecto, reasignar_todos_hoy)
     if res.get("status") == "error":
         raise HTTPException(status_code=400, detail=res.get("error", "Error reasignando proyecto"))
+    try:
+        from backend.gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception as e:
+        logger.warning(f"No se pudo sincronizar a Drive tras reasignar proyecto: {e}")
     return res
 
 
 # ---------------- API DEL PANEL ADMINISTRATIVO ----------------
 
 @app.get("/api/dashboard_metricas")
-def api_metricas():
-    return obtener_metricas_dashboard()
+def api_metricas(proyecto: Optional[str] = Query(None)):
+    return obtener_metricas_dashboard(proyecto_nombre=proyecto)
 
 
 @app.get("/api/reportes")
@@ -741,6 +884,66 @@ def api_record_actividades_empleado(
     """Retorna la lista cronológica de actividades realizadas por un trabajador en una fecha."""
     actividades = obtener_historial_actividades_empleado_dia(empleado_nombre=empleado, fecha=fecha)
     return {"status": "ok", "total": len(actividades), "actividades": actividades}
+
+
+# ---------------- API DE COMUNICADOS OFICIALES Y ALERTAS PUSH ----------------
+
+@app.post("/api/comunicados")
+def api_crear_comunicado(payload: dict):
+    """Crea y despacha un comunicado a toda la empresa, a una obra o a obreros específicos."""
+    titulo = payload.get("titulo", "").strip()
+    mensaje = payload.get("mensaje", "").strip()
+    tipo_entrega = payload.get("tipo_entrega", "IN_APP").upper() # PUSH o IN_APP
+    alcance = payload.get("alcance", "TODOS").upper() # TODOS, OBRA, PERSONAS
+    destinos = payload.get("destinos", [])
+    if not titulo or not mensaje:
+        raise HTTPException(status_code=400, detail="Título y mensaje son obligatorios.")
+    res = crear_comunicado(titulo, mensaje, tipo_entrega, alcance, destinos)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return res
+
+
+@app.get("/api/comunicados")
+def api_listar_comunicados():
+    """Listado de comunicados enviados con auditoría de quién lo leyó en vivo."""
+    return {"status": "ok", "comunicados": listar_comunicados_admin()}
+
+
+@app.get("/api/comunicados/pendientes")
+def api_comunicados_pendientes(nombre: str = Query(...), obra: Optional[str] = Query(None)):
+    """Verifica si el trabajador tiene avisos o comunicados pendientes de confirmar."""
+    pendientes = obtener_comunicados_pendientes_empleado(nombre, obra)
+    return {"status": "ok", "pendientes": pendientes}
+
+
+@app.post("/api/comunicados/{comunicado_id}/confirmar_lectura")
+def api_confirmar_lectura_comunicado(comunicado_id: int, payload: dict):
+    """Registra la firma digital obligatoria de 'Entendido y Recibido'."""
+    nombre = payload.get("nombre", "").strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="Nombre del trabajador requerido.")
+    res = registrar_lectura_comunicado(comunicado_id, nombre)
+    try:
+        from .gdrive import sincronizar_db_a_drive_master_async
+        sincronizar_db_a_drive_master_async()
+    except Exception:
+        pass
+    return res
+
+
+@app.post("/api/push/subscribe")
+def api_push_subscribe(payload: dict):
+    """Registra la suscripción Web Push del celular para alertas de pantalla bloqueada."""
+    nombre = payload.get("nombre", "").strip()
+    sub = payload.get("subscription", {})
+    if not nombre or not sub:
+        return {"status": "error", "error": "Datos incompletos"}
+    res = guardar_suscripcion_push(nombre, json.dumps(sub))
+    return res
 
 
 # Servir fotos de capturas y de perfiles oficiales

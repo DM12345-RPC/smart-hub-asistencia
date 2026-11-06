@@ -215,6 +215,37 @@
         }
         tr:hover { background: var(--row-hover); }
 
+        /* Columnas Congeladas y Ajuste Vertical (Punto 4) */
+        th.col-sticky-1, td.col-sticky-1 {
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            z-index: 3;
+            width: 50px;
+            min-width: 50px;
+        }
+        th.col-sticky-1 {
+            background: var(--th-bg);
+            z-index: 4;
+        }
+        th.col-sticky-2, td.col-sticky-2 {
+            position: sticky;
+            left: 64px;
+            background: var(--card-bg);
+            z-index: 3;
+            box-shadow: 3px 0 6px rgba(0,0,0,0.06);
+            min-width: 140px;
+        }
+        th.col-sticky-2 {
+            background: var(--th-bg);
+            z-index: 4;
+        }
+        .col-actividad {
+            max-width: 175px !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+        }
+
         /* Badges de Auditoría */
         .badge {
             padding: 4px 10px;
@@ -389,6 +420,7 @@
             <button id="btnTabMarcajes" class="tab-btn active" onclick="cambiarPestana('tab-marcajes')">📋 Marcajes de Asistencia</button>
             <button id="btnTabPersonal" class="tab-btn" onclick="cambiarPestana('tab-personal')">👥 Base de Datos de Personal & Biometría</button>
             <button id="btnTabObras" class="tab-btn" onclick="cambiarPestana('tab-obras')">📍 Obras & Carteles QR</button>
+            <button id="btnTabComunicados" class="tab-btn" onclick="cambiarPestana('tab-comunicados')">📢 Comunicados Oficiales</button>
         </div>
 
         <!-- ================= PESTAÑA 1: MARCAJES DE ASISTENCIA ================= -->
@@ -446,20 +478,20 @@
                     <thead>
                         <!-- Fila 1: Títulos de Columnas (Click para Ordenar) -->
                         <tr style="border-bottom: 1px solid var(--border);">
-                            <th style="width: 55px; text-align:center;">Foto</th>
-                            <th onclick="ordenarPor('empleado_nombre')" style="cursor:pointer;" title="Click para ordenar">
+                            <th class="col-sticky-1" style="width: 55px; text-align:center;">Foto</th>
+                            <th class="col-sticky-2" onclick="ordenarPor('empleado_nombre')" style="cursor:pointer;" title="Click para ordenar">
                                 Trabajador <span id="sort_empleado_nombre" style="font-size:10px; color:#64748b;">↕️</span>
                             </th>
                             <th onclick="ordenarPor('tipo')" style="cursor:pointer;" title="Click para ordenar">
                                 Tipo <span id="sort_tipo" style="font-size:10px; color:#64748b;">↕️</span>
                             </th>
                             <th onclick="ordenarPor('timestamp_local')" style="cursor:pointer;" title="Click para ordenar">
-                                Hora Marcada <span id="sort_timestamp_local" style="font-size:10px; color:#64748b;">↕️</span>
+                                Hora (Seattle PT) <span id="sort_timestamp_local" style="font-size:10px; color:#64748b;">↕️</span>
                             </th>
                             <th onclick="ordenarPor('proyecto_nombre')" style="cursor:pointer;" title="Click para ordenar">
                                 Obra / Proyecto <span id="sort_proyecto_nombre" style="font-size:10px; color:#64748b;">↕️</span>
                             </th>
-                            <th style="min-width: 140px;">
+                            <th class="col-actividad" style="max-width: 175px;">
                                 Actividad Actual
                             </th>
                             <th onclick="ordenarPor('similitud_facial')" style="cursor:pointer;" title="Click para ordenar">
@@ -479,10 +511,10 @@
 
                         <!-- Fila 2: Filtros por cada Columna -->
                         <tr style="background:var(--filter-bg); border-bottom: 2px solid var(--border);">
-                            <th style="text-align:center; padding: 6px 4px;">
+                            <th class="col-sticky-1" style="text-align:center; padding: 6px 4px;">
                                 <span style="color:#64748b; font-size:11px;">🔍</span>
                             </th>
-                            <th style="padding: 6px 4px;">
+                            <th class="col-sticky-2" style="padding: 6px 4px;">
                                 <input type="text" id="filtroColTrabajador" placeholder="Nombre..." oninput="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 6px; font-size:11px;">
                             </th>
                             <th style="padding: 6px 4px;">
@@ -500,7 +532,7 @@
                                     <option value="">Todas</option>
                                 </select>
                             </th>
-                            <th style="padding: 6px 4px;">
+                            <th class="col-actividad" style="padding: 6px 4px; max-width: 175px;">
                                 <input type="text" id="filtroColActividad" placeholder="Piso / Tarea..." oninput="filtrarMarcajes()" style="width:100%; box-sizing:border-box; padding:4px 6px; font-size:11px;">
                             </th>
                             <th style="padding: 6px 4px;">
@@ -554,14 +586,30 @@
 
         <!-- ================= PESTAÑA 2: BASE DE DATOS DE PERSONAL ================= -->
         <div id="tab-personal" class="hidden">
-            <div class="controls-bar">
+            <div class="controls-bar" style="align-items:flex-start;">
                 <div>
-                    <h2 style="margin:0; font-size:18px;">👥 Personal Enrolado con Biometría Facial</h2>
+                    <h2 style="margin:0; font-size:18px;">👥 Base de Datos de Personal & Biometría Facial</h2>
                     <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-sub);">
-                        Aquí puedes auditar la foto con la que cada persona se registró en la app para evitar errores de biometría.
+                        Administra credenciales, biometría facial, roles y permisos de visualización de horas.
                     </p>
                 </div>
-                <input type="text" id="buscadorPersonal" placeholder="🔍 Buscar por nombre..." oninput="filtrarPersonalAdmin()" style="width:260px;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <input type="text" id="buscadorPersonal" placeholder="🔍 Buscar por nombre..." oninput="filtrarPersonalAdmin()" style="width:220px;">
+                    <a href="/api/empleados/directorio_csv" class="btn" style="background:#059669; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:700;" title="Descargar lista con nombres y teléfonos para sincronizar con otras plataformas">
+                        📥 Descargar Directorio (.CSV)
+                    </a>
+                </div>
+            </div>
+
+            <!-- BARRA DE ACCIÓN MASIVA (Punto 2) -->
+            <div style="background:var(--filter-bg); border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text-main); cursor:pointer;">
+                    <input type="checkbox" id="chkSeleccionarTodosEmp" onchange="seleccionarTodosEmpleados(this.checked)" style="width:18px; height:18px; accent-color:#2563eb;">
+                    <span>Seleccionar Todos (<span id="txtCantSeleccionados">0</span> seleccionados)</span>
+                </label>
+                <button type="button" id="btnForzarReenrolMasivo" onclick="forzarReenrolamientoMasivo()" class="btn" style="background:#ef4444; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;" disabled>
+                    🔄 Forzar Re-enrolamiento Biométrico
+                </button>
             </div>
 
             <div id="gridPersonal" class="workers-grid">
@@ -611,6 +659,93 @@
                     </form>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- ================= PESTAÑA 4: COMUNICADOS OFICIALES Y ALERTAS (Punto 11) ================= -->
+        <div id="tab-comunicados" class="hidden">
+            <div class="grid-2">
+                <!-- Formulario de Emisión -->
+                <div class="p-box">
+                    <h3 style="margin-top:0;">📢 Emitir Comunicado Oficial</h3>
+                    <p style="font-size:13px; color:var(--text-sub);">
+                        Envía avisos a la empresa, obras o personas específicas mediante alerta Push en su celular o pantalla obligatoria al abrir la app.
+                    </p>
+                    <form id="formNuevoComunicado" onsubmit="enviarComunicadoAdmin(event)">
+                        <div style="display:flex; flex-direction:column; gap:12px;">
+                            <div>
+                                <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                                    🎯 Destinatarios:
+                                </label>
+                                <select id="comAlcance" onchange="cambiarAlcanceComunicado()" style="width:100%;">
+                                    <option value="GENERAL">🏢 Toda la Empresa (General)</option>
+                                    <option value="PROYECTO">🏗️ Por Obra Específica</option>
+                                    <option value="INDIVIDUAL">👤 Selección Múltiple de Trabajadores</option>
+                                </select>
+                            </div>
+
+                            <!-- Selector de Obra -->
+                            <div id="boxComObra" class="hidden">
+                                <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                                    🏗️ Selecciona la Obra:
+                                </label>
+                                <select id="comSelectObra" style="width:100%;"></select>
+                            </div>
+
+                            <!-- Selector Múltiple de Trabajadores -->
+                            <div id="boxComEmpleados" class="hidden">
+                                <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                                    👥 Marca los Trabajadores Destinatarios:
+                                </label>
+                                <div id="listaCheckEmpleadosCom" style="max-height:160px; overflow-y:auto; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                                    🚨 Tipo de Alerta / Recepción:
+                                </label>
+                                <select id="comTipoAlerta" style="width:100%;">
+                                    <option value="POPUP_OBLIGATORIO">📋 Aviso Obligatorio al Abrir App (Pantalla de bloqueo hasta dar Recibido)</option>
+                                    <option value="PUSH_ALERT">🚨 Alerta Push Directa (Vibración / Notificación de Celular)</option>
+                                    <option value="AMBOS">🔥 Ambos (Push Inmediata + Bloqueo Obligatorio)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                                    📝 Título del Comunicado:
+                                </label>
+                                <input type="text" id="comTitulo" placeholder="ej. Aviso Mandatorio de Seguridad / Charla Inicial" required style="width:100%;">
+                            </div>
+
+                            <div>
+                                <label style="font-size:12px; font-weight:700; color:var(--text-sub); display:block; margin-bottom:4px;">
+                                    💬 Mensaje Oficial:
+                                </label>
+                                <textarea id="comMensaje" rows="4" placeholder="Escribe aquí el comunicado oficial que deben leer y firmar los trabajadores..." required style="width:100%;"></textarea>
+                            </div>
+
+                            <button type="submit" id="btnEnviarComunicado" class="btn" style="background:#2563eb; padding:12px; font-weight:800; font-size:14px;">
+                                🚀 Publicar y Enviar Comunicado
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Historial y Auditoría de Lecturas -->
+                <div class="p-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="margin:0;">📋 Historial de Comunicados Emitidos</h3>
+                        <button type="button" onclick="cargarHistorialComunicados()" class="btn btn-outline" style="padding:4px 8px; font-size:12px;">🔄 Refrescar</button>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                        Monitorea en tiempo real quién ha leído y confirmado como recibido cada aviso oficial.
+                    </p>
+                    <div id="listaHistorialComunicados" style="display:flex; flex-direction:column; gap:10px; max-height:550px; overflow-y:auto;">
+                        Cargando historial...
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -723,6 +858,16 @@
                     </label>
                     <textarea id="confObraActividades" rows="3" style="width:100%; box-sizing:border-box;" placeholder="ej. Encofrado, Fierrería, Vaciado, Drywall, Pintura, Limpieza"></textarea>
                     <span style="font-size:11px; color:var(--text-sub);">Escribe cada labor separada por una coma.</span>
+                </div>
+                <!-- Toggle Ver Horas a Obreros (Punto 10) -->
+                <div style="background:var(--filter-bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--text-main); cursor:pointer;">
+                        <input type="checkbox" id="confObraMostrarHoras" style="width:18px; height:18px; accent-color:#2563eb;">
+                        <span>⏱️ Permitir ver resumen de horas a obreros en esta obra</span>
+                    </label>
+                    <div style="font-size:11px; color:var(--text-sub); margin-left:26px; margin-top:2px;">
+                        Si está desmarcado, ningún obrero asignado a esta obra verá el botón de horas trabajadas.
+                    </div>
                 </div>
                 <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
                     <button type="button" onclick="cerrarConfigObraModal()" class="btn btn-outline">Cancelar</button>
@@ -842,18 +987,24 @@
         let datosProyectos = [];
         let columnaOrdenActual = '';
         let direccionOrden = 'asc';
+        let ultimoFiltroProyecto = null;
 
         // ================= GESTIÓN DE PESTAÑAS =================
         function cambiarPestana(idTab) {
             document.getElementById('tab-marcajes').classList.add('hidden');
             document.getElementById('tab-personal').classList.add('hidden');
             document.getElementById('tab-obras').classList.add('hidden');
+            const tabCom = document.getElementById('tab-comunicados');
+            if (tabCom) tabCom.classList.add('hidden');
 
             document.getElementById('btnTabMarcajes').classList.remove('active');
             document.getElementById('btnTabPersonal').classList.remove('active');
             document.getElementById('btnTabObras').classList.remove('active');
+            const btnCom = document.getElementById('btnTabComunicados');
+            if (btnCom) btnCom.classList.remove('active');
 
-            document.getElementById(idTab).classList.remove('hidden');
+            const tabTarget = document.getElementById(idTab);
+            if (tabTarget) tabTarget.classList.remove('hidden');
 
             if (idTab === 'tab-marcajes') document.getElementById('btnTabMarcajes').classList.add('active');
             if (idTab === 'tab-personal') {
@@ -861,6 +1012,11 @@
                 cargarEmpleadosAdmin();
             }
             if (idTab === 'tab-obras') document.getElementById('btnTabObras').classList.add('active');
+            if (idTab === 'tab-comunicados') {
+                if (btnCom) btnCom.classList.add('active');
+                cargarHistorialComunicados();
+                cargarOpcionesComunicados();
+            }
         }
 
         async function recargarDatos() {
@@ -870,11 +1026,19 @@
             await cargarEmpleadosAdmin();
         }
 
-        async function cargarMetricas() {
+        async function cargarMetricas(proyectoFiltro) {
             try {
-                const res = await fetch("/api/dashboard_metricas");
+                const proy = proyectoFiltro !== undefined ? proyectoFiltro : (document.getElementById('filtroColProyecto')?.value || '');
+                const url = proy ? `/api/dashboard_metricas?proyecto=${encodeURIComponent(proy)}` : "/api/dashboard_metricas";
+                const res = await fetch(url);
                 const m = await res.json();
-                document.getElementById('mActivos').innerText = m.trabajadores_activos_hoy;
+                
+                const elActivos = document.getElementById('mActivos');
+                if (proy && m.activos_en_proyecto !== undefined) {
+                    elActivos.innerHTML = `<span>${m.activos_en_proyecto}</span> <span style="font-size:12px; font-weight:600; color:var(--text-sub);">(${m.trabajadores_activos_hoy} total)</span>`;
+                } else {
+                    elActivos.innerText = m.trabajadores_activos_hoy;
+                }
                 document.getElementById('mAprobados').innerText = m.aprobados_hoy;
                 document.getElementById('mFraudes').innerText = m.alertas_fraude_hoy;
                 document.getElementById('mQR').innerText = m.marcajes_bajo_losa_qr;
@@ -904,6 +1068,12 @@
             const fDistancia = document.getElementById('filtroColDistancia')?.value || '';
             const fMetodo = document.getElementById('filtroColMetodo')?.value || '';
             const fAuditoria = document.getElementById('filtroColAuditoria')?.value || '';
+
+            // Actualización dinámica de métrica por obra en mActivos (Punto 1)
+            if (fProyecto !== ultimoFiltroProyecto) {
+                ultimoFiltroProyecto = fProyecto;
+                cargarMetricas(fProyecto);
+            }
 
             marcajesFiltrados = datosMarcajes.filter(m => {
                 if (fTrabajador && (!m.empleado_nombre || !m.empleado_nombre.toLowerCase().includes(fTrabajador))) {
@@ -1006,6 +1176,9 @@
             if (document.getElementById('filtroColMetodo')) document.getElementById('filtroColMetodo').value = '';
             if (document.getElementById('filtroColAuditoria')) document.getElementById('filtroColAuditoria').value = '';
 
+            ultimoFiltroProyecto = null;
+            cargarMetricas('');
+
             columnaOrdenActual = '';
             direccionOrden = 'asc';
             const columnas = [
@@ -1031,8 +1204,8 @@
             }
 
             tbody.innerHTML = items.map(m => {
-                const hora = new Date(m.timestamp_local).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-                const fecha = new Date(m.timestamp_local).toLocaleDateString();
+                const hora = new Date(m.timestamp_local).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone: 'America/Los_Angeles' });
+                const fecha = new Date(m.timestamp_local).toLocaleDateString([], { timeZone: 'America/Los_Angeles' });
                 const fotoTag = m.foto_path ? 
                     `<img src="${m.foto_path}" class="thumb" alt="Foto" onclick="abrirModalInspeccion(${m.id})" title="Click para ver foto en grande">` : 
                     '<span style="color:#64748b; font-size:12px;">Sin foto</span>';
@@ -1040,13 +1213,16 @@
                 
                 const act = m.actividad_actual;
                 const actHtml = act ? 
-                    `<span style="background:var(--tag-bg-blue); color:var(--text-blue); border:1px solid var(--border-blue); font-weight:700; padding:2px 8px; border-radius:6px; font-size:11px; display:inline-block; white-space:nowrap;">📍 ${act.piso} • 🔨 ${act.actividad}</span>` : 
+                    `<div style="max-width:175px; background:var(--tag-bg-blue); color:var(--text-blue); border:1px solid var(--border-blue); border-radius:6px; padding:3px 6px; font-size:11px; line-height:1.3; word-break:break-word;">
+                        <div style="font-weight:800;">📍 ${act.piso}</div>
+                        <div style="color:var(--text-main); font-weight:600; margin-top:2px;">🔨 ${act.actividad}</div>
+                    </div>` : 
                     `<span style="color:var(--text-sub); font-size:11px; font-style:italic;">Sin asignar</span>`;
 
                 return `
                     <tr>
-                        <td>${fotoTag}</td>
-                        <td style="font-weight:700;">${m.empleado_nombre}</td>
+                        <td class="col-sticky-1">${fotoTag}</td>
+                        <td class="col-sticky-2" style="font-weight:700;">${m.empleado_nombre}</td>
                         <td><span class="tipo-badge tipo-${m.tipo}">${m.tipo}</span></td>
                         <td>
                             <div>${hora}</div>
@@ -1062,7 +1238,7 @@
                                 </button>
                             </div>
                         </td>
-                        <td>${actHtml}</td>
+                        <td class="col-actividad">${actHtml}</td>
                         <td style="font-weight:bold; color:#0284c7;">${m.similitud_facial}%</td>
                         <td>${distText}</td>
                         <td><span style="font-size:12px; font-weight:600;">${m.metodo_ubicacion}</span></td>
@@ -1114,7 +1290,7 @@
             fotoEl.src = m.foto_path || '/static/icon.png';
 
             document.getElementById('modBadgeAuditoria').innerHTML = `<span class="badge badge-${m.estado_auditoria}">${m.estado_auditoria}</span>`;
-            document.getElementById('modHoraLocal').innerText = new Date(m.timestamp_local).toLocaleString();
+            document.getElementById('modHoraLocal').innerText = new Date(m.timestamp_local).toLocaleString('es-US', { timeZone: 'America/Los_Angeles' }) + ' (Seattle PT)';
             document.getElementById('modProyecto').innerText = m.proyecto_nombre;
             document.getElementById('modSimilitud').innerText = `${m.similitud_facial}% de certeza biométrica`;
             document.getElementById('modDistancia').innerText = m.distancia_metros !== null ? `${Math.round(m.distancia_metros)} metros de la obra` : 'No calculada';
@@ -1323,6 +1499,102 @@
             }
         }
 
+        let empleadosSeleccionados = new Set();
+
+        function actualizarContadorSeleccionados() {
+            const checks = document.querySelectorAll('.chk-emp-select:checked');
+            empleadosSeleccionados.clear();
+            checks.forEach(c => empleadosSeleccionados.add(parseInt(c.value)));
+            
+            const cant = empleadosSeleccionados.size;
+            const txt = document.getElementById('txtCantSeleccionados');
+            if (txt) txt.innerText = cant;
+            
+            const btn = document.getElementById('btnForzarReenrolMasivo');
+            if (btn) {
+                btn.disabled = (cant === 0);
+                btn.innerHTML = `🔄 Forzar Re-enrolamiento (${cant})`;
+            }
+
+            const chkAll = document.getElementById('chkSeleccionarTodosEmp');
+            const allChecks = document.querySelectorAll('.chk-emp-select');
+            if (chkAll && allChecks.length > 0) {
+                chkAll.checked = (cant === allChecks.length);
+            }
+        }
+
+        function seleccionarTodosEmpleados(checked) {
+            const allChecks = document.querySelectorAll('.chk-emp-select');
+            allChecks.forEach(c => c.checked = checked);
+            actualizarContadorSeleccionados();
+        }
+
+        async function forzarReenrolamientoMasivo() {
+            const ids = Array.from(empleadosSeleccionados);
+            if (ids.length === 0) return alert("Selecciona al menos un trabajador.");
+
+            if (!confirm(`¿Estás seguro de forzar el re-enrolamiento biométrico para los ${ids.length} trabajadores seleccionados?\n\nEn su próximo acceso, la app les solicitará tomar fotos actualizadas de su rostro con consentimiento legal.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/empleados/forzar_reenrolamiento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado_ids: ids, forzar: true })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert(`✅ Re-enrolamiento forzado con éxito para ${data.actualizados} trabajadores.`);
+                    cargarEmpleadosAdmin();
+                } else {
+                    alert("Error: " + (data.error || "No se pudo actualizar"));
+                }
+            } catch (e) {
+                alert("Error de red al forzar re-enrolamiento.");
+            }
+        }
+
+        async function forzarReenrolamientoIndividual(id, nombre) {
+            if (!confirm(`¿Deseas obligar a ${nombre} a tomarse nuevas fotos biométricas en la app?`)) {
+                return;
+            }
+            try {
+                const res = await fetch('/api/empleados/forzar_reenrolamiento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado_ids: [id], forzar: true })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert(`✅ Se ha configurado el re-enrolamiento para ${nombre}.`);
+                    cargarEmpleadosAdmin();
+                } else {
+                    alert("Error: " + (data.error || "No se pudo actualizar"));
+                }
+            } catch (e) {
+                alert("Error de red");
+            }
+        }
+
+        async function togglePermisoHorasEmpleado(id, nuevoBloqueo) {
+            try {
+                const res = await fetch(`/api/empleados/${id}/permiso_horas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bloquear: nuevoBloqueo === 1 })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    cargarEmpleadosAdmin();
+                } else {
+                    alert("Error al cambiar permiso: " + data.error);
+                }
+            } catch (e) {
+                alert("Error de red");
+            }
+        }
+
         function renderizarEmpleados(lista) {
             const container = document.getElementById('gridPersonal');
             if (!lista || lista.length === 0) {
@@ -1332,10 +1604,15 @@
 
             container.innerHTML = lista.map(emp => {
                 const avatar = emp.foto_perfil || '/static/icon.png';
-                const fecha = new Date(emp.fecha_registro).toLocaleDateString();
+                const fecha = new Date(emp.fecha_registro).toLocaleDateString([], { timeZone: 'America/Los_Angeles' });
                 const tel = emp.telefono ? `📞 ${emp.telefono}` : '<span style="color:#64748b;">Sin teléfono</span>';
                 const rolActual = emp.rol || 'worker';
                 const obrasActuales = emp.obras_asignadas || 'ALL';
+
+                // Badge de biometría (Punto 2)
+                const badgeBio = emp.requiere_reenrolamiento 
+                    ? '<span style="background:#ef4444; color:white; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">⚠️ PENDIENTE FOTOS</span>' 
+                    : '<span style="background:#16a34a; color:white; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">✅ BIOMETRÍA OK</span>';
 
                 // Texto y color del badge de obras
                 let badgeObrasTexto = '🌐 Todas (ALL)';
@@ -1354,11 +1631,17 @@
                 const obrasEsc = (obrasActuales || 'ALL').replace(/'/g, "\\'");
 
                 return `
-                    <div class="worker-card">
+                    <div class="worker-card" style="display:flex; align-items:center; gap:10px;">
+                        <!-- Checkbox selección masiva -->
+                        <input type="checkbox" class="chk-emp-select" value="${emp.id}" onchange="actualizarContadorSeleccionados()" style="width:18px; height:18px; accent-color:#2563eb; cursor:pointer;">
+                        
                         <img src="${avatar}" alt="${emp.nombre}" class="worker-avatar" onclick="abrirFotoGrande('${avatar}')" title="Click para ver foto de enrolamiento">
                         <div style="flex:1; min-width:0;">
-                            <div style="font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                ${emp.nombre}
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <div style="font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    ${emp.nombre}
+                                </div>
+                                ${badgeBio}
                             </div>
                             <div style="font-size:13px; color:#38bdf8; margin:2px 0;">${tel}</div>
                             
@@ -1384,16 +1667,30 @@
                                 </button>
                             </div>
 
+                            <!-- TOGGLE RESUMEN HORAS (Punto 10) -->
+                            <div style="display:flex; align-items:center; gap:6px; margin:4px 0;">
+                                <label style="font-size:11px; color:#94a3b8; font-weight:600;">Ver Horas:</label>
+                                <button type="button" onclick="togglePermisoHorasEmpleado(${emp.id}, ${emp.bloquear_horas_resumen ? 0 : 1})" 
+                                        style="background:#0f172a; color:${emp.bloquear_horas_resumen ? '#ef4444' : '#10b981'}; border:1px solid #334155; border-radius:6px; padding:2px 7px; font-size:11px; font-weight:700; cursor:pointer;"
+                                        title="Permitir o bloquear que este obrero vea sus horas trabajadas en la app">
+                                    ${emp.bloquear_horas_resumen ? '🚫 Bloqueado' : '✅ Permitido'}
+                                </button>
+                            </div>
+
                             <div style="font-size:11px; color:#94a3b8;">Registrado: ${fecha}</div>
                         </div>
-                        <div>
-                            <button onclick="eliminarTrabajador(${emp.id}, '${emp.nombre}')" class="btn btn-danger" style="padding:6px 10px; font-size:12px;" title="Eliminar trabajador y reiniciar su biometría">
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <button onclick="forzarReenrolamientoIndividual(${emp.id}, '${nombreEsc}')" class="btn btn-outline" style="padding:4px 8px; font-size:11px;" title="Obligar a este trabajador a actualizar sus fotos de biometría">
+                                🔄 Re-enrolar
+                            </button>
+                            <button onclick="eliminarTrabajador(${emp.id}, '${emp.nombre}')" class="btn btn-danger" style="padding:4px 8px; font-size:11px;" title="Eliminar trabajador y reiniciar su biometría">
                                 🗑️
                             </button>
                         </div>
                     </div>
                 `;
             }).join('');
+            actualizarContadorSeleccionados();
         }
 
         let empEditandoObrasId = null;
@@ -1563,14 +1860,19 @@
                         <div class="project-item" style="display:flex; flex-direction:column; gap:8px;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <div>
-                                    <div style="font-weight:800; font-size:15px; color:var(--text-main);">📍 ${p.nombre}</div>
+                                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                        <div style="font-weight:800; font-size:15px; color:var(--text-main);">📍 ${p.nombre}</div>
+                                        <span style="background:${p.mostrar_horas_obreros !== 0 ? '#14532d' : '#7c2d12'}; color:${p.mostrar_horas_obreros !== 0 ? '#86efac' : '#fdba74'}; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px;">
+                                            ⏱️ Ver Horas: ${p.mostrar_horas_obreros !== 0 ? 'Permitido' : 'Desactivado'}
+                                        </span>
+                                    </div>
                                     <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">
                                         Radio: ${p.radio_metros}m • Lat: ${p.lat}, Lon: ${p.lon}
                                     </div>
                                 </div>
                                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                    <button onclick="abrirConfigurarObraModal(${p.id}, '${pNombreEsc}', '${pPisosEsc}', '${pActsEsc}')" class="btn" style="background:#2563eb; font-size:11px; padding:5px 9px;">
-                                        ⚙️ Pisos & Labores
+                                    <button onclick="abrirConfigurarObraModal(${p.id}, '${pNombreEsc}', '${pPisosEsc}', '${pActsEsc}', ${p.mostrar_horas_obreros !== undefined ? p.mostrar_horas_obreros : 1})" class="btn" style="background:#2563eb; font-size:11px; padding:5px 9px;">
+                                        ⚙️ Pisos & Horas
                                     </button>
                                     <a href="/api/qr_proyecto/${p.id}" target="_blank" download="QR_${p.nombre}.png" class="btn btn-outline" style="font-size:11px; padding:5px 9px;">
                                         🖨 Cartel QR
@@ -1604,11 +1906,13 @@
             }
         }
 
-        function abrirConfigurarObraModal(id, nombre, pisos, actividades) {
+        function abrirConfigurarObraModal(id, nombre, pisos, actividades, mostrarHoras) {
             document.getElementById('confObraId').value = id;
             document.getElementById('confObraTitulo').innerText = `Configurar: ${nombre}`;
             document.getElementById('confObraPisos').value = pisos || '';
             document.getElementById('confObraActividades').value = actividades || '';
+            const chk = document.getElementById('confObraMostrarHoras');
+            if (chk) chk.checked = (mostrarHoras === 1 || mostrarHoras === true);
             const modal = document.getElementById('modalConfigObra');
             modal.classList.remove('hidden');
         }
@@ -1626,16 +1930,26 @@
             const id = document.getElementById('confObraId').value;
             const pisos = document.getElementById('confObraPisos').value.trim();
             const actividades = document.getElementById('confObraActividades').value.trim();
+            const chkHoras = document.getElementById('confObraMostrarHoras');
+            const mostrarHoras = (chkHoras && chkHoras.checked) ? 1 : 0;
 
             try {
+                // 1. Guardar pisos y labores
                 const res = await fetch(`/api/proyectos/${id}/config`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ pisos, actividades })
                 });
+                // 2. Guardar permiso de resumen de horas por obra (Punto 10)
+                await fetch(`/api/proyectos/${id}/permiso_horas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mostrar_horas_obreros: mostrarHoras })
+                });
+
                 const data = await res.json();
                 if (data.status === 'ok') {
-                    alert("✅ Configuración de pisos y labores actualizada para esta obra.");
+                    alert("✅ Configuración de obra actualizada correctamente.");
                     cerrarConfigObraModal();
                     cargarProyectosAdmin();
                 } else {
@@ -1682,7 +1996,7 @@
             const encabezados = [
                 "ID",
                 "Fecha Marcaje",
-                "Hora Local Marcada",
+                "Hora Marcada (Seattle PT)",
                 "Nombre del Trabajador",
                 "Tipo (Entrada/Salida)",
                 "Obra o Proyecto",
@@ -1700,8 +2014,8 @@
 
             listaAExportar.forEach(m => {
                 const fechaObj = new Date(m.timestamp_local);
-                const fecha = fechaObj.toLocaleDateString('es-ES');
-                const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const fecha = fechaObj.toLocaleDateString('es-ES', { timeZone: 'America/Los_Angeles' });
+                const hora = fechaObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Los_Angeles' });
 
                 const fila = [
                     m.id,
@@ -1740,6 +2054,144 @@
             let url = `/api/reporte_actividades_csv?proyecto=${encodeURIComponent(proy)}`;
             if (fecha) url += `&fecha=${encodeURIComponent(fecha)}`;
             window.location.href = url;
+        }
+
+        // ================= COMUNICADOS OFICIALES Y ALERTAS (TAB 4) =================
+        function cambiarAlcanceComunicado() {
+            const alc = document.getElementById('comAlcance').value;
+            const boxObra = document.getElementById('boxComObra');
+            const boxEmp = document.getElementById('boxComEmpleados');
+            if (alc === 'PROYECTO') {
+                boxObra.classList.remove('hidden');
+                boxEmp.classList.add('hidden');
+            } else if (alc === 'INDIVIDUAL') {
+                boxObra.classList.add('hidden');
+                boxEmp.classList.remove('hidden');
+            } else {
+                boxObra.classList.add('hidden');
+                boxEmp.classList.add('hidden');
+            }
+        }
+
+        function cargarOpcionesComunicados() {
+            // Cargar selector de obras
+            const selObra = document.getElementById('comSelectObra');
+            if (selObra && datosProyectos) {
+                selObra.innerHTML = '<option value="">-- Seleccionar Obra --</option>' +
+                    datosProyectos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+            }
+            // Cargar lista con checkboxes de empleados
+            const boxEmp = document.getElementById('listaCheckEmpleadosCom');
+            if (boxEmp && datosEmpleados) {
+                boxEmp.innerHTML = datosEmpleados.map(emp => `
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+                        <input type="checkbox" class="chk-com-emp" value="${emp.nombre}" style="width:16px; height:16px; accent-color:#2563eb;">
+                        <span>${emp.nombre} (${emp.telefono || 'Sin tel.'})</span>
+                    </label>
+                `).join('');
+            }
+        }
+
+        async function enviarComunicadoAdmin(e) {
+            e.preventDefault();
+            const alcance = document.getElementById('comAlcance').value;
+            let targetValor = "";
+
+            if (alcance === 'PROYECTO') {
+                targetValor = document.getElementById('comSelectObra').value;
+                if (!targetValor) return alert("Por favor selecciona la obra destinataria.");
+            } else if (alcance === 'INDIVIDUAL') {
+                const checks = document.querySelectorAll('.chk-com-emp:checked');
+                const seleccionados = Array.from(checks).map(c => c.value);
+                if (seleccionados.length === 0) return alert("Por favor marca al menos un trabajador destinatario.");
+                targetValor = JSON.stringify(seleccionados);
+            }
+
+            const tipoAlerta = document.getElementById('comTipoAlerta').value;
+            const titulo = document.getElementById('comTitulo').value.trim();
+            const mensaje = document.getElementById('comMensaje').value.trim();
+
+            if (!titulo || !mensaje) return alert("El título y el mensaje son obligatorios.");
+
+            const btn = document.getElementById('btnEnviarComunicado');
+            btn.disabled = true;
+            btn.innerText = "🚀 Enviando Comunicado...";
+
+            try {
+                const res = await fetch('/api/comunicados', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        titulo: titulo,
+                        mensaje: mensaje,
+                        tipo_alerta: tipoAlerta,
+                        target_tipo: alcance,
+                        target_valor: targetValor,
+                        creado_por: 'Administración'
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    alert(`✅ Comunicado oficial emitido exitosamente.`);
+                    document.getElementById('comTitulo').value = '';
+                    document.getElementById('comMensaje').value = '';
+                    cargarHistorialComunicados();
+                } else {
+                    alert("Error emitiendo comunicado: " + (data.error || 'Desconocido'));
+                }
+            } catch(e) {
+                alert("Error de red al enviar comunicado.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "🚀 Publicar y Enviar Comunicado";
+            }
+        }
+
+        async function cargarHistorialComunicados() {
+            const container = document.getElementById('listaHistorialComunicados');
+            container.innerHTML = '<div style="color:#94a3b8; padding:15px; text-align:center;">⏳ Cargando historial de comunicados...</div>';
+            try {
+                const res = await fetch('/api/comunicados');
+                const data = await res.json();
+                if (data.status === 'ok' && data.comunicados && data.comunicados.length > 0) {
+                    container.innerHTML = data.comunicados.map(c => {
+                        const fecha = new Date(c.created_at).toLocaleString('es-US', { timeZone: 'America/Los_Angeles' });
+                        let targetLabel = '🏢 Toda la Empresa';
+                        if (c.target_tipo === 'PROYECTO') targetLabel = `🏗️ Obra: ${c.target_valor}`;
+                        else if (c.target_tipo === 'INDIVIDUAL') {
+                            try {
+                                const list = JSON.parse(c.target_valor);
+                                targetLabel = `👤 ${list.length} Trabajador(es)`;
+                            } catch(e) {
+                                targetLabel = '👤 Selección Individual';
+                            }
+                        }
+
+                        const alertLabel = c.tipo_alerta === 'PUSH_ALERT' ? '🚨 Alerta Push' : (c.tipo_alerta === 'AMBOS' ? '🔥 Push + Bloqueo' : '📋 Bloqueo App');
+
+                        return `
+                            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:12px; box-shadow:var(--shadow);">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                    <div>
+                                        <div style="font-weight:800; font-size:14px; color:var(--text-main);">${c.titulo}</div>
+                                        <div style="font-size:11px; color:var(--text-sub); margin-top:2px;">
+                                            📅 ${fecha} (Seattle) • ${targetLabel} • <span style="color:#38bdf8; font-weight:700;">${alertLabel}</span>
+                                        </div>
+                                    </div>
+                                    <span style="background:#0f172a; border:1px solid #334155; color:#34d399; font-size:11px; font-weight:800; padding:3px 8px; border-radius:12px;">
+                                        ✍️ ${c.total_lecturas || 0} Confirmados
+                                    </span>
+                                </div>
+                                <div style="font-size:12px; color:var(--text-main); margin-top:8px; line-height:1.4; background:var(--input-bg); padding:8px; border-radius:6px; border:1px solid var(--border); white-space:pre-wrap;">${c.mensaje}</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    container.innerHTML = '<div style="color:var(--text-sub); padding:20px; text-align:center;">No se han emitido comunicados oficiales todavía.</div>';
+                }
+            } catch (e) {
+                container.innerHTML = '<div style="color:#ef4444; padding:15px; text-align:center;">Error al cargar historial de comunicados.</div>';
+            }
         }
 
         async function respaldarGoogleDrive() {

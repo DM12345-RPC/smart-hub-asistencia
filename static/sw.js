@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ryan-pacific-asistencia-v6';
+const CACHE_NAME = 'ryan-pacific-asistencia-v7';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/index.html',
@@ -72,5 +72,48 @@ self.addEventListener('fetch', (event) => {
           }
         });
       })
+  );
+});
+
+// ================= NOTIFICACIONES PUSH Y ALERTAS DE CELULAR (Punto 11) =================
+self.addEventListener('push', (event) => {
+  let data = { title: '📢 AVISO DE EMPRESA', body: 'Tienes un nuevo comunicado oficial.', url: '/' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+  const options = {
+    body: data.body,
+    icon: '/static/icons/icon-192.png',
+    badge: '/static/icon.png',
+    vibrate: [250, 100, 250, 100, 450],
+    data: { url: data.url || '/' },
+    requireInteraction: true,
+    actions: [
+      { action: 'open', title: '👀 Ver Aviso' }
+    ]
+  };
+  event.waitUntil(
+    self.registration.showNotification(data.title || '📢 AVISO DE EMPRESA', options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });
